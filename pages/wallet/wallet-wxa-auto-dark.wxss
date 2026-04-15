@@ -1,0 +1,42 @@
+/* 
+此文件为开发者工具生成，生成时间: 2026/4/10下午7:00:40
+使用方法：
+在 wallet.wxss 文件末尾引入样式
+```
+@import "./wallet-wxa-auto-dark.wxss";
+```
+ */
+
+@media (prefers-color-scheme: dark) {
+    .wallet-head {
+        background: rgb(0, 0, 0);
+        color: rgb(17, 17, 17);
+    }
+
+    .record-amount {
+        color: rgb(199, 212, 248);
+    }
+
+    .record-status.pending {
+        background: rgb(27, 21, 10);
+        color: rgb(157, 78, 0);
+    }
+
+    .record-status.paid {
+        background: rgb(11, 26, 23);
+        color: rgb(0, 124, 89);
+    }
+
+    .record-status.rejected {
+        background: rgb(31, 23, 19);
+        color: rgb(173, 55, 23);
+    }
+
+    .record-time {
+        color: rgb(89, 102, 127);
+    }
+
+    .record-remark {
+        color: rgb(122, 140, 170);
+    }
+}

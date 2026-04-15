@@ -1,0 +1,106 @@
+.intro-card {
+  padding: 30rpx 28rpx;
+  background: linear-gradient(135deg, #1e86ff, #4fc3d8);
+  color: #ffffff;
+}
+
+.intro-title {
+  display: block;
+  font-size: 38rpx;
+  font-weight: 700;
+}
+
+.intro-desc {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  opacity: 0.96;
+}
+
+.inline-links {
+  display: flex;
+  gap: 18rpx;
+}
+
+.profile-warning {
+  padding: 24rpx;
+  border: 1rpx solid #d7e6fb;
+  background: #f7fbff;
+}
+
+.warning-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #20314d;
+}
+
+.warning-desc {
+  display: block;
+  margin: 12rpx 0 20rpx;
+  font-size: 24rpx;
+  color: #73829d;
+}
+
+.field-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 12rpx;
+}
+
+.double-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18rpx;
+}
+
+.field-top-gap {
+  margin-top: 14rpx;
+}
+
+.upload-list {
+  display: flex;
+  gap: 16rpx;
+  flex-wrap: wrap;
+  margin-bottom: 18rpx;
+}
+
+.upload-item {
+  position: relative;
+  width: 200rpx;
+}
+
+.upload-image {
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 20rpx;
+  background: #eef4fb;
+}
+
+.upload-remove {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #f2734c;
+  text-align: center;
+}
+
+.pay-card {
+  padding: 24rpx;
+}
+
+.pay-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #22314b;
+}
+
+.pay-desc {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: #7b89a5;
+}

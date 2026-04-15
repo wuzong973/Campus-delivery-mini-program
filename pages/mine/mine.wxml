@@ -1,0 +1,133 @@
+<view class="container">
+  <view class="profile-card card">
+    <view class="row-between">
+      <view class="profile-main">
+        <view class="avatar-circle avatar-large theme-{{profile.avatarTheme}}">{{profile.avatarText}}</view>
+        <view class="profile-text">
+          <text class="profile-name">{{profile.nickname}}</text>
+          <text class="profile-desc">{{profile.slogan}}</text>
+        </view>
+      </view>
+      <view class="profile-badge" bindtap="goAuth">注册/登录</view>
+    </view>
+
+    <view class="profile-extra">
+      <text>联系方式：{{profile.phone}}</text>
+      <text>常用地址：{{profile.commonAddress}}</text>
+      <text wx:if="{{profile.profileComplete}}">资料状态：已完善，可发单接单</text>
+      <text wx:else>资料状态：待完善，完善后才能发单接单</text>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="stat-grid">
+      <view class="card stat-card">
+        <text class="stat-label">累计发布</text>
+        <text class="stat-value">{{stats.publishedCount}}</text>
+      </view>
+      <view class="card stat-card">
+        <text class="stat-label">累计承接</text>
+        <text class="stat-value">{{stats.acceptedCount}}</text>
+      </view>
+      <view class="card stat-card">
+        <text class="stat-label">累计收益</text>
+        <text class="stat-value">{{stats.income}}</text>
+      </view>
+      <view class="card stat-card">
+        <text class="stat-label">累计支出</text>
+        <text class="stat-value">{{stats.spending}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block action-panel card">
+    <view class="action-line" bindtap="goWallet">
+      <text class="action-title">收益与提现</text>
+      <text class="action-value">查看余额与提现记录</text>
+    </view>
+    <view class="action-line" bindtap="goOrder">
+      <text class="action-title">订单管理</text>
+      <text class="action-value">处理中 {{stats.processingCount}} 单</text>
+    </view>
+    <view class="action-line" bindtap="goPublish">
+      <text class="action-title">继续发布需求</text>
+      <text class="action-value">待接单 {{stats.pendingCount}} 单</text>
+    </view>
+    <view class="action-line" bindtap="goUserInfo">
+      <text class="action-title">资料设置</text>
+      <text class="action-value">完善头像、昵称和地址信息</text>
+    </view>
+    <view class="action-line" bindtap="handleSettings">
+      <text class="action-title">设置</text>
+      <text class="action-value">收藏 {{collectionCount}} 项</text>
+    </view>
+    <view class="action-line contact-line">
+      <text class="action-title">联系客服</text>
+      <button class="contact-btn" open-type="contact" show-message-card="true" send-message-title="校园代拿客服" send-message-path="/pages/mine/mine" send-message-img="" plain>在线咨询</button>
+    </view>
+    <view class="action-line" bindtap="goAdmin" wx:if="{{profile.role === 'admin'}}">
+      <text class="action-title">平台管理</text>
+      <text class="action-value">查看订单、用户与提现审核</text>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>最近通知</text>
+      <text class="section-subtitle">未读 {{unreadCount}} 条</text>
+    </view>
+    <view class="notice-list" wx:if="{{notifications.length}}">
+      <view class="notice-box" wx:for="{{notifications}}" wx:key="id">
+        <text class="notice-title">{{item.title}}</text>
+        <text class="notice-desc">{{item.content}}</text>
+        <text class="notice-time">{{item.createdAtText}}</text>
+      </view>
+    </view>
+    <view class="card list-empty" wx:else>
+      <text class="list-empty-title">还没有新的提醒</text>
+      <text>后续接单、完成订单等提醒会展示在这里。</text>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>已发布需求</text>
+      <text class="link-text" bindtap="goOrder">查看全部</text>
+    </view>
+    <view class="preview-list" wx:if="{{publishedTasks.length}}">
+      <view class="preview-card card" wx:for="{{publishedTasks}}" wx:key="id" bindtap="openDetail" data-id="{{item.id}}">
+        <view class="row-between">
+          <text class="preview-title">{{item.typeText}} | {{item.deliveryAddress}}</text>
+          <text class="tag tag-{{item.status}}">{{item.statusText}}</text>
+        </view>
+        <text class="preview-desc">取件地址：{{item.pickupAddress}}</text>
+        <text class="preview-meta">{{item.rewardText}} · {{item.createdAtText}}</text>
+      </view>
+    </view>
+    <view class="card list-empty" wx:else>
+      <text class="list-empty-title">你还没有发布过需求</text>
+      <text>先去发布一个任务，列表和订单页会自动同步。</text>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>已承接任务</text>
+      <text class="link-text" bindtap="goOrder">查看全部</text>
+    </view>
+    <view class="preview-list" wx:if="{{acceptedTasks.length}}">
+      <view class="preview-card card" wx:for="{{acceptedTasks}}" wx:key="id" bindtap="openDetail" data-id="{{item.id}}">
+        <view class="row-between">
+          <text class="preview-title">{{item.typeText}} | {{item.deliveryAddress}}</text>
+          <text class="tag tag-{{item.status}}">{{item.statusText}}</text>
+        </view>
+        <text class="preview-desc">发布者：{{item.publisher.nickname}}</text>
+        <text class="preview-meta">{{item.rewardText}} · {{item.createdAtText}}</text>
+      </view>
+    </view>
+    <view class="card list-empty" wx:else>
+      <text class="list-empty-title">还没有承接中的任务</text>
+      <text>去任务列表看看，也许就有顺路单可以接。</text>
+    </view>
+  </view>
+</view>

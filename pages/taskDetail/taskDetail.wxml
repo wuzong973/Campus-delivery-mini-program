@@ -1,0 +1,173 @@
+<view class="container" wx:if="{{task.id}}">
+  <view class="card detail-card">
+    <view class="row-between">
+      <view class="task-tags">
+        <text class="tag {{task.type === 'takeout' ? 'tag-takeout' : 'tag-parcel'}}">{{task.typeText}}</text>
+        <text class="tag tag-{{task.status === 'delivered' ? 'accepted' : task.status}}">{{task.statusText}}</text>
+        <text class="pay-chip {{task.payStatus === 'paid' ? 'paid' : 'unpaid'}}">{{task.payStatusText}}</text>
+      </view>
+      <text class="price-text">{{task.rewardText}}</text>
+    </view>
+
+    <text class="detail-title">{{task.typeText}}代拿订单</text>
+    <text class="detail-time">发布时间：{{task.createdAtFullText}}</text>
+
+    <view class="finance-panel">
+      <view class="finance-item">
+        <text class="finance-label">平台抽成</text>
+        <text class="finance-value">{{task.platformFeeText}}</text>
+      </view>
+      <view class="finance-item">
+        <text class="finance-label">跑腿收益</text>
+        <text class="finance-value">{{task.runnerIncomeText}}</text>
+      </view>
+      <view class="finance-item">
+        <text class="finance-label">距离 / 时效</text>
+        <text class="finance-value">{{task.distanceText}} · {{task.etaText}}</text>
+      </view>
+    </view>
+
+    <view class="timeline-panel">
+      <view class="timeline-item {{item.done ? 'done' : ''}}" wx:for="{{task.timeline}}" wx:key="key">
+        <view class="timeline-dot"></view>
+        <view class="timeline-main">
+          <text class="timeline-title">{{item.title}}</text>
+          <text class="timeline-time">{{item.timeText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="route-panel">
+      <view class="route-item">
+        <text class="route-sign route-pick">取</text>
+        <view class="route-main">
+          <text class="route-name">取件地址</text>
+          <text class="route-value">{{task.pickupAddress}}</text>
+          <text class="route-sub">区域：{{task.campusAreaText}} · {{task.pickupTimeText}}</text>
+          <text class="route-link" wx:if="{{task.pickupLocation}}" data-location="{{task.pickupLocation}}" bindtap="openLocation">查看地图</text>
+        </view>
+      </view>
+      <view class="route-item">
+        <text class="route-sign route-send">送</text>
+        <view class="route-main">
+          <text class="route-name">送达地址</text>
+          <text class="route-value">{{task.deliveryAddress}}</text>
+          <text class="route-sub" wx:if="{{task.hasDeliveryDormInfo}}">楼栋：{{task.deliveryBuildingText}} · 宿舍：{{task.deliveryRoomText}}</text>
+          <text class="route-link" wx:if="{{task.deliveryLocation}}" data-location="{{task.deliveryLocation}}" bindtap="openLocation">查看地图</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="info-box">
+      <view class="info-row">
+        <text class="info-label">收件人</text>
+        <text class="info-value">{{task.receiverName}}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">联系方式</text>
+        <text class="info-value">{{task.contactPhoneText}}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">接单时间</text>
+        <text class="info-value">{{task.acceptedAtDisplay}}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">送达时间</text>
+        <text class="info-value">{{task.deliveredAtDisplay}}</text>
+      </view>
+      <view class="info-row">
+        <text class="info-label">完成时间</text>
+        <text class="info-value">{{task.completedAtDisplay}}</text>
+      </view>
+    </view>
+
+    <view class="remark-box">
+      <text class="remark-title">备注说明</text>
+      <text class="remark-text">{{task.remark}}</text>
+    </view>
+  </view>
+
+  <view class="card section-block user-card">
+    <view class="user-row">
+      <view class="avatar-circle theme-{{task.publisher.avatarTheme}}">{{task.publisher.avatarText}}</view>
+      <view class="user-main">
+        <text class="user-name">发布者：{{task.publisher.nickname}}</text>
+        <text class="user-desc">{{task.publisherSloganText}}</text>
+        <text class="user-meta">联系电话：{{task.contactPhoneText}}</text>
+      </view>
+    </view>
+    <view class="user-row taker-row" wx:if="{{task.runner}}">
+      <view class="avatar-circle theme-{{task.runner.avatarTheme}}">{{task.runner.avatarText}}</view>
+      <view class="user-main">
+        <text class="user-name">接单者：{{task.runner.nickname}}</text>
+        <text class="user-desc">评分 {{task.runnerScoreText}} · 已完成 {{task.runnerCompletedJobsText}} 单</text>
+        <text class="user-meta">联系电话：{{task.runnerPhoneText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card section-block proof-card" wx:if="{{task.attachments.length}}">
+    <text class="proof-title">订单附件</text>
+    <view class="attachment-list">
+      <image class="attachment-image" wx:for="{{task.attachments}}" wx:key="filePath" src="{{item.displayUrl || item.filePath}}" mode="aspectFill" data-src="{{item.displayUrl || item.filePath}}" bindtap="previewImage"></image>
+    </view>
+  </view>
+
+  <view class="card section-block proof-card" wx:if="{{task.deliveryProof}}">
+    <text class="proof-title">拍照送达凭证</text>
+    <image class="proof-image" src="{{task.deliveryProof.displayUrl || task.deliveryProof.fileID}}" mode="aspectFill"></image>
+    <text class="proof-desc">{{task.proofNoteText}}</text>
+  </view>
+
+  <view class="card section-block rate-card" wx:if="{{task.canRate}}">
+    <text class="rate-title">跑腿员评分</text>
+    <view class="rate-options">
+      <view class="rate-chip {{rateScore === item ? 'active' : ''}}" wx:for="{{[1, 2, 3, 4, 5]}}" wx:key="*this" data-score="{{item}}" bindtap="selectRate">{{item}} 分</view>
+    </view>
+    <textarea class="field-textarea" placeholder="填写本次跑腿服务评价" value="{{rateComment}}" bindinput="handleRateComment"></textarea>
+    <view class="section-block">
+      <button class="primary-btn" bindtap="submitRating">提交评价</button>
+    </view>
+  </view>
+
+  <view class="card section-block rate-card" wx:if="{{task.rating}}">
+    <text class="rate-title">已提交评价</text>
+    <text class="proof-desc">评分：{{task.rating.score}} 分</text>
+    <text class="proof-desc" wx:if="{{task.rating.comment}}">{{task.rating.comment}}</text>
+  </view>
+
+  <view class="section-block">
+    <view class="action-row">
+      <button class="secondary-btn" bindtap="handleContactPublisher">联系发布者</button>
+      <button class="ghost-btn" bindtap="handleCollect">{{task.isCollected ? '取消收藏' : '收藏任务'}}</button>
+    </view>
+  </view>
+
+  <view class="section-block" wx:if="{{task.runner}}">
+    <button class="ghost-btn" bindtap="handleContactRunner">联系接单者</button>
+  </view>
+
+  <view class="section-block" wx:if="{{task.canPay}}">
+    <button class="primary-btn" bindtap="handlePay">支付并托管赏金</button>
+  </view>
+
+  <view class="section-block" wx:if="{{task.canAccept}}">
+    <button class="primary-btn" loading="{{submitting}}" disabled="{{submitting}}" bindtap="handleAccept">立即接单</button>
+  </view>
+
+  <view class="section-block" wx:if="{{task.canUploadProof}}">
+    <button class="primary-btn" bindtap="handleUploadProof">拍照送达</button>
+  </view>
+
+  <view class="section-block" wx:if="{{task.canComplete}}">
+    <button class="primary-btn" bindtap="handleComplete">确认完成并结算</button>
+  </view>
+
+  <view class="section-block" wx:if="{{task.canCancel}}">
+    <button class="ghost-btn" bindtap="handleCancel">取消订单</button>
+  </view>
+
+  <view class="section-block" wx:if="{{task.showOrderEntry}}">
+    <button class="secondary-btn" bindtap="goToOrder">去订单页查看最新状态</button>
+  </view>
+</view>

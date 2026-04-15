@@ -1,0 +1,59 @@
+<view class="container">
+  <view class="card wallet-head">
+    <text class="wallet-title">可提现余额</text>
+    <text class="wallet-balance">{{wallet.balanceText}}</text>
+    <text class="wallet-tip">{{wallet.takeLimitTip}}</text>
+  </view>
+
+  <view class="section-block stat-grid">
+    <view class="card stat-card">
+      <text class="stat-label">累计收益</text>
+      <text class="stat-value">{{wallet.totalIncomeText}}</text>
+    </view>
+    <view class="card stat-card">
+      <text class="stat-label">累计提现</text>
+      <text class="stat-value">{{wallet.totalWithdrawnText}}</text>
+    </view>
+    <view class="card stat-card">
+      <text class="stat-label">审核中</text>
+      <text class="stat-value">{{wallet.pendingWithdrawText}}</text>
+    </view>
+    <view class="card stat-card">
+      <text class="stat-label">平台抽成</text>
+      <text class="stat-value">1%</text>
+    </view>
+  </view>
+
+  <view class="card form-card section-block">
+    <text class="form-title">发起提现</text>
+    <view class="field">
+      <view class="field-label">
+        <text>提现金额</text>
+      </view>
+      <input class="field-input" type="digit" placeholder="请输入提现金额" value="{{amount}}" bindinput="handleInput" />
+      <text class="field-tip">提现申请提交后，会进入管理员审核流程。</text>
+    </view>
+    <button class="primary-btn" loading="{{submitting}}" disabled="{{submitting}}" bindtap="submitWithdraw">提交提现申请</button>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>提现记录</text>
+      <text class="section-subtitle">最近 20 条</text>
+    </view>
+    <view class="record-list" wx:if="{{wallet.withdrawals.length}}">
+      <view class="card record-card" wx:for="{{wallet.withdrawals}}" wx:key="id">
+        <view class="row-between">
+          <text class="record-amount">{{item.amountText}}</text>
+          <text class="record-status {{item.status}}">{{item.status}}</text>
+        </view>
+        <text class="record-time">{{item.createdAtText}}</text>
+        <text class="record-remark" wx:if="{{item.remark}}">{{item.remark}}</text>
+      </view>
+    </view>
+    <view class="card list-empty" wx:else>
+      <text class="list-empty-title">暂无提现记录</text>
+      <text>完成订单结算后，收益会先进入余额，再支持提现。</text>
+    </view>
+  </view>
+</view>

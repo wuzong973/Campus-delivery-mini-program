@@ -1,0 +1,96 @@
+<view class="container">
+  <view class="stat-grid">
+    <view class="card stat-card">
+      <text class="stat-label">用户数</text>
+      <text class="stat-value">{{dashboard.summary.userCount}}</text>
+    </view>
+    <view class="card stat-card">
+      <text class="stat-label">订单数</text>
+      <text class="stat-value">{{dashboard.summary.orderCount}}</text>
+    </view>
+    <view class="card stat-card">
+      <text class="stat-label">平台流水</text>
+      <text class="stat-value">{{dashboard.summary.totalVolumeText}}</text>
+    </view>
+    <view class="card stat-card">
+      <text class="stat-label">平台抽成</text>
+      <text class="stat-value">{{dashboard.summary.platformIncomeText}}</text>
+    </view>
+    <view class="card stat-card">
+      <text class="stat-label">跑腿结算</text>
+      <text class="stat-value">{{dashboard.summary.totalRunnerIncomeText}}</text>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>提现审核</text>
+      <text class="section-subtitle">待处理 {{dashboard.summary.pendingWithdrawals}} 条</text>
+    </view>
+    <view class="admin-list" wx:if="{{dashboard.withdrawals.length}}">
+      <view class="card admin-card" wx:for="{{dashboard.withdrawals}}" wx:key="id">
+        <view class="row-between">
+          <text class="admin-title">{{item.nickname}}</text>
+          <text class="admin-status {{item.status}}">{{item.status}}</text>
+        </view>
+        <text class="admin-desc">金额：{{item.amountText}}</text>
+        <text class="admin-desc">手机号：{{item.phone}}</text>
+        <text class="admin-meta">{{item.createdAtText}}</text>
+        <view class="action-row section-block" wx:if="{{item.status === 'pending'}}">
+          <button class="secondary-btn" bindtap="auditWithdrawal" data-id="{{item.id}}" data-decision="approve">通过</button>
+          <button class="ghost-btn" bindtap="auditWithdrawal" data-id="{{item.id}}" data-decision="reject">驳回</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>异常频率日志</text>
+      <text class="section-subtitle">自动风控检测</text>
+    </view>
+    <view class="admin-list" wx:if="{{dashboard.abnormalLogs.length}}">
+      <view class="card admin-card" wx:for="{{dashboard.abnormalLogs}}" wx:key="id">
+        <text class="admin-title">{{item.nickname}}</text>
+        <text class="admin-desc">{{item.reason}}</text>
+        <text class="admin-meta">{{item.type}} · {{item.createdAtText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>最近用户</text>
+      <text class="section-subtitle">便于管理账号与联系信息</text>
+    </view>
+    <view class="admin-list" wx:if="{{dashboard.users.length}}">
+      <view class="card admin-card" wx:for="{{dashboard.users}}" wx:key="id">
+        <view class="row-between">
+          <text class="admin-title">{{item.nickname}}</text>
+          <text class="admin-status {{item.role}}">{{item.role}}</text>
+        </view>
+        <text class="admin-desc">电话：{{item.phoneText}} · 钱包：{{item.walletBalanceText}}</text>
+        <text class="admin-desc">收益：{{item.totalIncomeText}} · 资料：{{item.profileStatusText}}</text>
+        <text class="admin-meta">评分 {{item.averageScoreText}} · 完成 {{item.completedJobsText}} 单 · {{item.createdAtText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>最近订单</text>
+      <text class="section-subtitle">查看订单状态与支付情况</text>
+    </view>
+    <view class="admin-list" wx:if="{{dashboard.orders.length}}">
+      <view class="card admin-card" wx:for="{{dashboard.orders}}" wx:key="id">
+        <view class="row-between">
+          <text class="admin-title">{{item.typeText}} · {{item.rewardText}}</text>
+          <text class="admin-status status-tag">{{item.status}} / {{item.payStatus}}</text>
+        </view>
+        <text class="admin-desc">发布者：{{item.publisherName}} · 接单者：{{item.runnerName}}</text>
+        <text class="admin-desc">{{item.campusAreaText}} · {{item.deliveryAddress}}</text>
+        <text class="admin-meta">{{item.createdAtText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,71 @@
+<view class="container">
+  <view class="card form-card">
+    <text class="form-title">资料说明</text>
+    <text class="field-tip">为保证接单联系和资金结算，昵称、手机号、常用地址为必填项。资料完善后才能发布订单和接单。</text>
+  </view>
+
+  <view class="card profile-preview">
+    <view class="avatar-circle avatar-large theme-{{form.avatarTheme}}">
+      {{avatarText}}
+    </view>
+    <text class="preview-name">{{previewName}}</text>
+    <text class="preview-desc">{{previewDesc}}</text>
+  </view>
+
+  <view class="card form-card section-block">
+    <text class="form-title">头像主题</text>
+    <view class="theme-list">
+      <view
+        class="theme-item {{form.avatarTheme === item.value ? 'active' : ''}}"
+        wx:for="{{themes}}"
+        wx:key="value"
+        data-value="{{item.value}}"
+        bindtap="selectTheme"
+      >
+        <view class="avatar-circle avatar-small theme-{{item.value}}">{{avatarText}}</view>
+        <text class="theme-text">{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card form-card section-block">
+    <text class="form-title">基础资料</text>
+
+    <view class="field">
+      <view class="field-label">
+        <text>昵称</text>
+        <text class="field-required">*</text>
+      </view>
+      <input class="field-input" placeholder="请输入昵称" value="{{form.nickname}}" data-field="nickname" bindinput="handleInput" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>联系方式</text>
+        <text class="field-required">*</text>
+      </view>
+      <input class="field-input" type="number" maxlength="11" placeholder="请输入手机号" value="{{form.phone}}" data-field="phone" bindinput="handleInput" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>常用地址</text>
+        <view class="inline-links">
+          <text class="link-text" bindtap="chooseCommonAddress">地图选点</text>
+        </view>
+      </view>
+      <input class="field-input" placeholder="例如：10号宿舍楼 406" value="{{form.commonAddress}}" data-field="commonAddress" bindinput="handleInput" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>个性签名</text>
+      </view>
+      <textarea class="field-textarea" placeholder="例如：下午常在驿站附近，接单响应快" maxlength="60" value="{{form.slogan}}" data-field="slogan" bindinput="handleInput"></textarea>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <button class="primary-btn" loading="{{saving}}" disabled="{{saving}}" bindtap="handleSubmit">保存资料</button>
+  </view>
+</view>

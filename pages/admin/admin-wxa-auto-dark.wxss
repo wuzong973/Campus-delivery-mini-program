@@ -1,0 +1,42 @@
+/* 
+此文件为开发者工具生成，生成时间: 2026/4/10下午7:00:40
+使用方法：
+在 admin.wxss 文件末尾引入样式
+```
+@import "./admin-wxa-auto-dark.wxss";
+```
+ */
+
+@media (prefers-color-scheme: dark) {
+    .admin-title {
+        color: rgb(198, 210, 249);
+    }
+
+    .admin-desc {
+        color: rgb(122, 140, 170);
+    }
+
+    .admin-meta {
+        color: rgb(78, 91, 112);
+    }
+
+    .admin-status.pending {
+        background: rgb(27, 21, 10);
+        color: rgb(157, 78, 0);
+    }
+
+    .admin-status.paid, .admin-status.admin {
+        background: rgb(11, 26, 23);
+        color: rgb(0, 124, 89);
+    }
+
+    .admin-status.rejected, .admin-status.user {
+        background: rgb(19, 25, 32);
+        color: rgb(0, 119, 237);
+    }
+
+    .status-tag {
+        background: rgb(21, 23, 26);
+        color: rgb(125, 142, 172);
+    }
+}

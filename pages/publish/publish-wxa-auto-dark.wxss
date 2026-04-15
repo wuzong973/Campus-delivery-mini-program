@@ -1,0 +1,44 @@
+/* 
+此文件为开发者工具生成，生成时间: 2026/4/10下午7:00:40
+使用方法：
+在 publish.wxss 文件末尾引入样式
+```
+@import "./publish-wxa-auto-dark.wxss";
+```
+ */
+
+@media (prefers-color-scheme: dark) {
+    .intro-card {
+        background: rgb(0, 0, 0);
+        color: rgb(17, 17, 17);
+    }
+
+    .profile-warning {
+        border: rgb(0, 0, 0);
+        background: rgb(18, 21, 24);
+    }
+
+    .warning-title {
+        color: rgb(198, 213, 250);
+    }
+
+    .warning-desc {
+        color: rgb(108, 123, 150);
+    }
+
+    .upload-image {
+        background: rgb(22, 26, 31);
+    }
+
+    .upload-remove {
+        color: rgb(173, 55, 23);
+    }
+
+    .pay-title {
+        color: rgb(199, 213, 247);
+    }
+
+    .pay-desc {
+        color: rgb(102, 116, 143);
+    }
+}
