@@ -1,0 +1,62 @@
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.admin-card {
+  padding: 22rpx;
+}
+
+.admin-title,
+.admin-desc,
+.admin-meta {
+  display: block;
+}
+
+.admin-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #243250;
+}
+
+.admin-desc {
+  margin-top: 12rpx;
+  color: #61728f;
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
+.admin-meta {
+  margin-top: 12rpx;
+  color: #97a4bc;
+  font-size: 22rpx;
+}
+
+.admin-status {
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+}
+
+.admin-status.pending {
+  background: #fff7eb;
+  color: #d98018;
+}
+
+.admin-status.paid,
+.admin-status.admin {
+  background: #e9fbf7;
+  color: #11a57f;
+}
+
+.admin-status.rejected,
+.admin-status.user {
+  background: #eef6ff;
+  color: #1e86ff;
+}
+
+.status-tag {
+  background: #f5f8fc;
+  color: #5f708d;
+}

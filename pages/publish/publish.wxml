@@ -1,0 +1,182 @@
+<view class="container">
+  <view class="intro-card card">
+    <text class="intro-title">发布校园代拿需求</text>
+    <text class="intro-desc">订单提交后会先托管赏金，支付成功后才会进入任务大厅。</text>
+  </view>
+
+  <view class="card profile-warning section-block" wx:if="{{!profileState.isComplete}}">
+    <text class="warning-title">发布前需要先完善个人资料</text>
+    <text class="warning-desc">当前缺少：{{profileState.missingText}}</text>
+    <button class="secondary-btn" bindtap="goUserInfo">去完善资料</button>
+  </view>
+
+  <view class="card form-card section-block">
+    <text class="form-title">收件信息</text>
+
+    <view class="field">
+      <view class="field-label">
+        <text>收件人姓名</text>
+        <text class="field-required">*</text>
+      </view>
+      <input class="field-input" placeholder="例如：张同学" value="{{form.receiverName}}" data-field="receiverName" bindinput="handleInput" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>联系方式</text>
+        <text class="field-required">*</text>
+      </view>
+      <input class="field-input" type="number" maxlength="11" placeholder="请输入手机号" value="{{form.contactPhone}}" data-field="contactPhone" bindinput="handleInput" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>下单类型</text>
+        <text class="field-required">*</text>
+      </view>
+      <view class="pill-group">
+        <view class="pill-item {{form.type === item.value ? 'active' : ''}}" wx:for="{{typeOptions}}" wx:key="value" data-value="{{item.value}}" bindtap="switchType">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card form-card section-block">
+    <text class="form-title">地址与履约信息</text>
+
+    <view class="field">
+      <view class="field-label">
+        <text>取件地址</text>
+        <text class="field-required">*</text>
+      </view>
+      <input class="field-input" placeholder="例如：东区菜鸟驿站 / 二食堂北门" value="{{form.pickupAddress}}" data-field="pickupAddress" bindinput="handleInput" />
+      <view class="field-actions">
+        <text class="link-text" data-field="pickup" bindtap="chooseLocation">地图辅助定位</text>
+      </view>
+      <text class="field-tip">地图定位为可选项，也可以直接手动输入。</text>
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>送达地址</text>
+        <text class="field-required">*</text>
+      </view>
+      <input class="field-input" placeholder="例如：10号宿舍楼 406" value="{{form.deliveryAddress}}" data-field="deliveryAddress" bindinput="handleInput" />
+      <view class="field-actions">
+        <text class="link-text" bindtap="fillCommonAddress">填入常用地址</text>
+        <text class="link-text" data-field="delivery" bindtap="chooseLocation">地图辅助定位</text>
+      </view>
+      <text class="field-tip">常用地址：{{profileCommonAddressText}}</text>
+    </view>
+
+    <view class="double-grid">
+      <view class="field">
+        <view class="field-label">
+          <text>送达楼栋</text>
+          <text class="field-required">*</text>
+        </view>
+        <input class="field-input" placeholder="例如：10号楼" value="{{form.deliveryBuilding}}" data-field="deliveryBuilding" bindinput="handleInput" />
+      </view>
+
+      <view class="field">
+        <view class="field-label">
+          <text>宿舍号</text>
+          <text class="field-required">*</text>
+        </view>
+        <input class="field-input" placeholder="例如：406" value="{{form.deliveryRoom}}" data-field="deliveryRoom" bindinput="handleInput" />
+      </view>
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>取件时间</text>
+        <text class="field-required">*</text>
+      </view>
+      <view class="pill-group">
+        <view class="pill-item {{form.pickupTimeType === item.value ? 'active' : ''}}" wx:for="{{pickupTimeOptions}}" wx:key="value" data-value="{{item.value}}" bindtap="switchPickupTime">{{item.label}}</view>
+      </view>
+      <input wx:if="{{form.pickupTimeType === 'scheduled'}}" class="field-input field-top-gap" placeholder="例如：今天 20:30 前 / 明天 12:10" value="{{form.pickupTimeValue}}" data-field="pickupTimeValue" bindinput="handleInput" />
+    </view>
+  </view>
+
+  <view class="card form-card section-block">
+    <text class="form-title">备注、凭证与金额</text>
+
+    <view class="field">
+      <view class="field-label">
+        <text>备注信息</text>
+        <text class="field-required">*</text>
+      </view>
+      <textarea class="field-textarea" placeholder="请填写取件码、口味要求、楼下联系说明等，备注为必填项" maxlength="180" value="{{form.remark}}" data-field="remark" bindinput="handleInput"></textarea>
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>凭证 / 地址图片</text>
+      </view>
+      <view class="upload-list" wx:if="{{form.attachments.length}}">
+        <view class="upload-item" wx:for="{{form.attachments}}" wx:key="filePath">
+          <image class="upload-image" src="{{item.filePath}}" mode="aspectFill"></image>
+          <text class="upload-remove" data-index="{{index}}" bindtap="removeAttachment">删除</text>
+        </view>
+      </view>
+      <button class="secondary-btn" bindtap="chooseAttachment">上传图片（最多 3 张）</button>
+      <text class="field-tip">可上传取件凭证、地址门牌或备注截图。</text>
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>基础悬赏金额</text>
+      </view>
+      <input class="field-input" type="digit" placeholder="最低 2.00 元" value="{{form.basePrice}}" data-field="basePrice" bindinput="handlePriceInput" bindblur="handlePriceBlur" />
+      <text class="field-tip">最低悬赏金额为 2.00 元，您可以根据需求提高悬赏。</text>
+    </view>
+
+    <view class="field" wx:if="{{form.type === 'parcel'}}">
+      <view class="field-label">
+        <text>大件物品（+¥{{dynamicFees.largeItemFee.toFixed(2)}}）</text>
+      </view>
+      <switch checked="{{form.isLargeItem}}" data-field="isLargeItem" bindchange="handleSwitchChange" />
+      <text class="field-tip">适用于体积或重量明显较大的快递。</text>
+    </view>
+
+    <view class="field" wx:if="{{form.type === 'helpBuy'}}">
+      <view class="field-label">
+        <text>帮买物品数量</text>
+      </view>
+      <input class="field-input" type="number" placeholder="超过 5 件会加收 ¥0.50" value="{{form.itemCount}}" data-field="itemCount" bindinput="handleInput" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">
+        <text>加急服务（+¥{{dynamicFees.urgentFee.toFixed(2)}}）</text>
+      </view>
+      <switch checked="{{form.isUrgent}}" data-field="isUrgent" bindchange="handleSwitchChange" />
+      <text class="field-tip">加急订单会优先展示，更快被接单。</text>
+    </view>
+
+    <view class="field fee-summary">
+      <view class="field-label">
+        <text>费用明细</text>
+      </view>
+      <view class="fee-line">基础金额：<text class="fee-value">¥{{summaryFormatted.base}}</text></view>
+      <view class="fee-line" wx:if="{{summary.largeItem > 0}}">大件附加费：<text class="fee-value">+¥{{summaryFormatted.largeItem}}</text></view>
+      <view class="fee-line" wx:if="{{summary.itemCount > 0}}">多件附加费：<text class="fee-value">+¥{{summaryFormatted.itemCount}}</text></view>
+      <view class="fee-line" wx:if="{{summary.urgent > 0}}">加急附加费：<text class="fee-value">+¥{{summaryFormatted.urgent}}</text></view>
+      <view class="fee-line total-line">总悬赏金额：<text class="fee-value total-value">¥{{summaryFormatted.total}}</text></view>
+      <view class="fee-line">平台抽成：<text class="fee-value">{{feeInfo.platformFee}}</text></view>
+      <view class="fee-line">跑腿预计收益：<text class="fee-value">{{feeInfo.runnerIncome}}</text></view>
+    </view>
+  </view>
+
+  <view class="section-block pay-card card">
+    <text class="pay-title">支付与履约说明</text>
+    <text class="pay-desc">1. 发布后立即支付并托管赏金。</text>
+    <text class="pay-desc">2. 微信会拉起原生支付页，请按提示完成支付。</text>
+    <text class="pay-desc">3. 接单者完成前必须上传拍照送达凭证。</text>
+    <text class="pay-desc">4. 若取消支付，订单会保留在订单页，可稍后继续支付。</text>
+  </view>
+
+  <view class="section-block">
+    <button class="primary-btn" loading="{{submitting}}" disabled="{{submitting}}" bindtap="handleSubmit">发布并支付</button>
+  </view>
+</view>

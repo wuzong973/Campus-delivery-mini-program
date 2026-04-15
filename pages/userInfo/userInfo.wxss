@@ -1,0 +1,55 @@
+.profile-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32rpx 28rpx;
+  text-align: center;
+}
+
+.preview-name {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #23314d;
+}
+
+.preview-desc {
+  display: block;
+  margin-top: 12rpx;
+  color: #8491aa;
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
+.theme-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18rpx;
+}
+
+.theme-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 18rpx;
+  border-radius: 18rpx;
+  border: 1rpx solid #dce6f1;
+  background: #ffffff;
+}
+
+.theme-item.active {
+  border-color: #1e86ff;
+  background: #eef6ff;
+}
+
+.theme-text {
+  font-size: 26rpx;
+  color: #30415d;
+  font-weight: 600;
+}
+
+.inline-links {
+  display: flex;
+  gap: 18rpx;
+}

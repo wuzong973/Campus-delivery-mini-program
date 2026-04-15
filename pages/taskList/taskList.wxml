@@ -1,0 +1,88 @@
+<view class="container">
+  <view class="list-head card">
+    <view class="row-between">
+      <view>
+        <text class="list-head-title">接单大厅</text>
+        <text class="list-head-desc">仅展示 5km 内、已托管赏金的待接单订单。</text>
+      </view>
+      <view class="list-badge">{{total}} 单</view>
+    </view>
+  </view>
+
+  <view class="card filter-card section-block">
+    <view class="filter-group">
+      <text class="filter-label">区域</text>
+      <scroll-view class="filter-scroll" scroll-x>
+        <view class="pill-group nowrap">
+          <view class="pill-item {{filters.area === item.value ? 'active' : ''}}" wx:for="{{filterOptions.areas}}" wx:key="value" data-group="area" data-value="{{item.value}}" bindtap="switchFilter">{{item.label}}</view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view class="filter-group">
+      <text class="filter-label">类型</text>
+      <scroll-view class="filter-scroll" scroll-x>
+        <view class="pill-group nowrap">
+          <view class="pill-item {{filters.type === item.value ? 'active' : ''}}" wx:for="{{filterOptions.types}}" wx:key="value" data-group="type" data-value="{{item.value}}" bindtap="switchFilter">{{item.label}}</view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view class="filter-group">
+      <text class="filter-label">价格</text>
+      <scroll-view class="filter-scroll" scroll-x>
+        <view class="pill-group nowrap">
+          <view class="pill-item {{filters.price === item.value ? 'active' : ''}}" wx:for="{{filterOptions.prices}}" wx:key="value" data-group="price" data-value="{{item.value}}" bindtap="switchFilter">{{item.label}}</view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <view class="task-list section-block" wx:if="{{list.length}}">
+    <view class="task-card card" wx:for="{{list}}" wx:key="id" bindtap="openDetail" data-id="{{item.id}}">
+      <view class="row-between">
+        <view class="task-tags">
+          <text class="tag {{item.type === 'takeout' ? 'tag-takeout' : 'tag-parcel'}}">{{item.typeText}}</text>
+          <text class="tag tag-pending">{{item.statusText}}</text>
+          <text class="tag tag-area">{{item.campusAreaText}}</text>
+        </view>
+        <text class="price-text">{{item.rewardText}}</text>
+      </view>
+
+      <view class="route-row">
+        <text class="route-label route-pick">取</text>
+        <text class="route-text">{{item.pickupAddress}}</text>
+      </view>
+
+      <view class="route-row">
+        <text class="route-label route-send">送</text>
+        <text class="route-text">{{item.deliveryAddress}}</text>
+      </view>
+
+      <view class="meta-grid">
+        <text class="meta-chip">距离 {{item.distanceText}}</text>
+        <text class="meta-chip">预计 {{item.etaText}}</text>
+        <text class="meta-chip">{{item.pickupTimeText}}</text>
+      </view>
+
+      <view class="row-between task-bottom">
+        <view class="publisher-wrap">
+          <view class="avatar-circle avatar-small theme-{{item.publisher.avatarTheme}}">{{item.publisher.avatarText}}</view>
+          <view>
+            <text class="publisher-name">{{item.publisher.nickname}}</text>
+            <text class="publisher-time">{{item.createdAtText}}</text>
+          </view>
+        </view>
+        <text class="detail-link">查看详情</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card list-empty" wx:else>
+    <text class="list-empty-title">当前筛选下暂无可接订单</text>
+    <text>你可以调整筛选条件，或稍后下拉刷新再看看。</text>
+    <view class="empty-btn-wrap">
+      <button class="secondary-btn" bindtap="goPublish">去发布需求</button>
+    </view>
+  </view>
+</view>

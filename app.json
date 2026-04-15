@@ -1,0 +1,62 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/publish/publish",
+    "pages/taskList/taskList",
+    "pages/taskDetail/taskDetail",
+    "pages/order/order",
+    "pages/mine/mine",
+    "pages/auth/auth",
+    "pages/userInfo/userInfo",
+    "pages/wallet/wallet",
+    "pages/admin/admin"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#F7FBFF",
+    "navigationBarTitleText": "\u6821\u56ed\u4ee3\u62ff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F5F8FC"
+  },
+  "tabBar": {
+    "position": "top",
+    "color": "#6D7C95",
+    "selectedColor": "#1E86FF",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "\u9996\u9875"
+      },
+      {
+        "pagePath": "pages/publish/publish",
+        "text": "\u53d1\u5e03"
+      },
+      {
+        "pagePath": "pages/taskList/taskList",
+        "text": "\u4efb\u52a1"
+      },
+      {
+        "pagePath": "pages/order/order",
+        "text": "\u8ba2\u5355"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "\u6211\u7684"
+      }
+    ]
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "\u7528\u4e8e\u5730\u56fe\u5b9a\u4f4d\u5e76\u81ea\u52a8\u586b\u5199\u53d6\u4ef6\u548c\u9001\u8fbe\u5730\u5740"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

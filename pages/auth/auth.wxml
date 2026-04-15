@@ -1,0 +1,35 @@
+<view class="container">
+  <view class="card auth-hero">
+    <text class="auth-title">微信注册 / 登录</text>
+    <text class="auth-desc">首次点击“微信一键注册/登录”会自动创建账号，后续进入小程序会继续沿用当前微信身份。</text>
+  </view>
+
+  <view class="card auth-card section-block">
+    <text class="auth-block-title">当前账号状态</text>
+    <text class="auth-line">昵称：{{profile.nickname || '未设置'}}</text>
+    <text class="auth-line">手机号：{{profile.phone || '未绑定'}}</text>
+    <text class="auth-line">资料状态：{{profile.profileComplete ? '已完善' : '待完善'}}</text>
+    <text class="auth-tip">登录成功后建议继续完善昵称、手机号、常用地址，方便接单联系与结算。</text>
+  </view>
+
+  <view class="auth-footer">
+    <checkbox-group bindchange="handleAgreeChange">
+      <checkbox class="privacy-checkbox" value="agree" checked="{{ isAgreed }}">
+        <text class="privacy-text">我已阅读并同意</text>
+      </checkbox>
+    </checkbox-group>
+    <text class="privacy-link" bindtap="openPrivacyContract">《用户隐私政策》</text>
+  </view>
+
+  <view class="section-block">
+    <button class="primary-btn" loading="{{submitting}}" disabled="{{submitting}}" bindtap="handleWechatLogin">微信一键注册/登录</button>
+  </view>
+
+  <view class="section-block">
+    <button class="secondary-btn" bindtap="goUserInfo">去完善个人资料</button>
+  </view>
+
+  <view class="section-block">
+    <button class="ghost-btn" bindtap="goHome">进入首页</button>
+  </view>
+</view>

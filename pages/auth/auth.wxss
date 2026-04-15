@@ -1,0 +1,45 @@
+.auth-hero,
+.auth-card {
+  padding: 28rpx 24rpx;
+}
+
+.auth-hero {
+  background: linear-gradient(135deg, #1e86ff, #4fc3d8);
+  color: #ffffff;
+}
+
+.auth-title {
+  display: block;
+  font-size: 38rpx;
+  font-weight: 700;
+}
+
+.auth-desc {
+  display: block;
+  margin-top: 14rpx;
+  line-height: 1.7;
+  font-size: 24rpx;
+}
+
+.auth-block-title {
+  display: block;
+  margin-bottom: 16rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #22314b;
+}
+
+.auth-line {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  color: #51627d;
+}
+
+.auth-tip {
+  display: block;
+  margin-top: 18rpx;
+  font-size: 24rpx;
+  color: #8a97b2;
+  line-height: 1.7;
+}

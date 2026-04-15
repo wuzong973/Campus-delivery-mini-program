@@ -1,0 +1,81 @@
+.wallet-head {
+  padding: 32rpx 28rpx;
+  background: linear-gradient(135deg, #1e86ff, #35c8d4);
+  color: #ffffff;
+}
+
+.wallet-title {
+  display: block;
+  font-size: 28rpx;
+  opacity: 0.92;
+}
+
+.wallet-balance {
+  display: block;
+  margin-top: 18rpx;
+  font-size: 56rpx;
+  font-weight: 700;
+}
+
+.wallet-tip {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  opacity: 0.94;
+}
+
+.record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.record-card {
+  padding: 22rpx;
+}
+
+.record-amount {
+  font-size: 30rpx;
+  color: #23314d;
+  font-weight: 700;
+}
+
+.record-status {
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+}
+
+.record-status.pending {
+  background: #fff7eb;
+  color: #d98018;
+}
+
+.record-status.paid {
+  background: #e9fbf7;
+  color: #11a57f;
+}
+
+.record-status.rejected {
+  background: #fff2ed;
+  color: #f2734c;
+}
+
+.record-time,
+.record-remark {
+  display: block;
+}
+
+.record-time {
+  margin-top: 12rpx;
+  color: #8a97b2;
+  font-size: 22rpx;
+}
+
+.record-remark {
+  margin-top: 10rpx;
+  color: #61728f;
+  font-size: 24rpx;
+  line-height: 1.7;
+}

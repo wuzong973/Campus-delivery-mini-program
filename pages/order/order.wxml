@@ -1,0 +1,82 @@
+<view class="container">
+  <view class="card order-summary">
+    <view class="summary-mini-grid">
+      <view class="summary-mini-item">
+        <text class="summary-mini-value">{{activeCounts.pending}}</text>
+        <text class="summary-mini-label">待接单</text>
+      </view>
+      <view class="summary-mini-item">
+        <text class="summary-mini-value">{{activeCounts.accepted}}</text>
+        <text class="summary-mini-label">待完成</text>
+      </view>
+      <view class="summary-mini-item">
+        <text class="summary-mini-value">{{activeCounts.completed}}</text>
+        <text class="summary-mini-label">已完成</text>
+      </view>
+      <view class="summary-mini-item">
+        <text class="summary-mini-value">{{activeCounts.cancelled}}</text>
+        <text class="summary-mini-label">已取消</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block tabs-wrap role-tabs">
+    <view class="tab-item {{activeRole === item.value ? 'active' : ''}}" wx:for="{{roleTabs}}" wx:key="value" data-value="{{item.value}}" bindtap="switchRole">
+      <text>{{item.label}}</text>
+    </view>
+  </view>
+
+  <view class="section-block tabs-wrap">
+    <view class="tab-item {{activeStatus === item.value ? 'active' : ''}}" wx:for="{{statusTabs}}" wx:key="value" data-value="{{item.value}}" bindtap="switchStatus">
+      <text>{{item.label}}</text>
+      <text class="tab-count">{{item.count}}</text>
+    </view>
+  </view>
+
+  <view class="section-block order-list" wx:if="{{list.length}}">
+    <view class="card order-card" wx:for="{{list}}" wx:key="id" bindtap="openDetail" data-id="{{item.id}}">
+      <view class="row-between">
+        <view class="task-tags">
+          <text class="tag {{item.type === 'takeout' ? 'tag-takeout' : 'tag-parcel'}}">{{item.typeText}}</text>
+          <text class="tag tag-{{item.status === 'delivered' ? 'accepted' : item.status}}">{{item.statusText}}</text>
+        </view>
+        <view class="status-group">
+          <text class="pay-chip {{item.payStatus === 'paid' ? 'paid' : 'unpaid'}}">{{item.payStatusText}}</text>
+          <text class="order-role {{item.isMine ? 'role-publisher' : 'role-runner'}}">{{item.roleText}}</text>
+        </view>
+      </view>
+
+      <view class="order-route">
+        <text class="order-route-text">区域：{{item.campusAreaText}}</text>
+        <text class="order-route-text">取件：{{item.pickupAddress}}</text>
+        <text class="order-route-text">送达：{{item.deliveryAddress}}</text>
+      </view>
+
+      <view class="runner-box">
+        <text class="runner-text">取件时间：{{item.pickupTimeText}}</text>
+        <text class="runner-text" wx:if="{{item.runner}}">接单人：{{item.runner.nickname}} · {{item.runnerPhoneText}}</text>
+      </view>
+
+      <image class="proof-thumb" wx:if="{{item.deliveryProof}}" src="{{item.deliveryProof.displayUrl || item.deliveryProof.fileID}}" mode="aspectFill"></image>
+
+      <view class="row-between order-meta">
+        <text class="order-meta-text">{{item.rewardText}} · 抽成 {{item.platformFeeText}}</text>
+        <text class="order-meta-text">{{item.createdAtText}}</text>
+      </view>
+
+      <view class="action-row order-actions" wx:if="{{item.hasAction}}">
+        <button class="secondary-btn action-btn" wx:if="{{item.canPay}}" catchtap="handlePay" data-id="{{item.id}}">继续支付</button>
+        <button class="ghost-btn action-btn" wx:if="{{item.canCancel}}" catchtap="handleCancel" data-id="{{item.id}}">取消订单</button>
+        <button class="primary-btn action-btn" wx:if="{{item.canComplete}}" catchtap="handleComplete" data-id="{{item.id}}">确认完成</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="card list-empty section-block" wx:else>
+    <text class="list-empty-title">当前标签下暂无订单</text>
+    <text>你可以去发布新的需求，或切换其他标签查看订单记录。</text>
+    <view class="empty-btn-wrap">
+      <button class="secondary-btn" bindtap="goPublish">去发布需求</button>
+    </view>
+  </view>
+</view>

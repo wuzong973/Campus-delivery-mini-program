@@ -1,0 +1,137 @@
+<view class="container">
+  <view class="home-head card">
+    <view class="row-between">
+      <view>
+        <text class="home-greet">你好，{{currentUser.nickname}}</text>
+        <text class="home-desc">把排队和跑腿交给顺路的同学，把时间留给更重要的事。</text>
+      </view>
+      <view class="avatar-circle avatar-large theme-{{currentUser.avatarTheme}}">
+        {{currentUser.avatarText}}
+      </view>
+    </view>
+    <view class="summary-grid">
+      <view class="summary-item">
+        <text class="summary-value">{{summary.pendingTasks}}</text>
+        <text class="summary-label">待接任务</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-value">{{summary.runnerCount}}</text>
+        <text class="summary-label">活跃接单者</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-value">{{summary.completedTasks}}</text>
+        <text class="summary-label">已完成订单</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <swiper class="banner-swiper" indicator-dots circular autoplay interval="3200" duration="450">
+      <swiper-item wx:for="{{banners}}" wx:key="id">
+        <view class="banner-card {{item.className}}">
+          <text class="banner-tip">{{item.tip}}</text>
+          <text class="banner-title">{{item.title}}</text>
+          <text class="banner-desc">{{item.desc}}</text>
+        </view>
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>快捷入口</text>
+      <text class="section-subtitle">常用操作一步直达</text>
+    </view>
+    <view class="quick-grid">
+      <view class="quick-card card" bindtap="goPublish">
+        <text class="quick-title">快速发布</text>
+        <text class="quick-desc">外卖和快递需求一键发单</text>
+      </view>
+      <view class="quick-card card" bindtap="goTaskList">
+        <text class="quick-title">浏览任务</text>
+        <text class="quick-desc">查看最新待接单任务列表</text>
+      </view>
+      <view class="quick-card card" bindtap="goOrder">
+        <text class="quick-title">订单管理</text>
+        <text class="quick-desc">按状态跟踪我的订单进度</text>
+      </view>
+      <view class="quick-card card" bindtap="goMine">
+        <text class="quick-title">个人中心</text>
+        <text class="quick-desc">查看资料、钱包和消息提醒</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>公告栏</text>
+      <text class="section-subtitle">平台规则与提醒</text>
+    </view>
+    <view class="notice-list">
+      <view class="card notice-strip" wx:for="{{notices}}" wx:key="*this">
+        <text>{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>价格参考</text>
+      <text class="section-subtitle">起步价 1 元</text>
+    </view>
+    <view class="price-grid">
+      <view class="card price-card" wx:for="{{priceReference}}" wx:key="id">
+        <text class="price-scene">{{item.scene}}</text>
+        <text class="price-main">{{item.price}}</text>
+        <text class="price-tip">{{item.tip}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>热门代拿区域</text>
+      <text class="section-subtitle">高频接单点位</text>
+    </view>
+    <view class="area-list">
+      <view class="card area-card" wx:for="{{hotAreas}}" wx:key="id">
+        <text class="area-name">{{item.name}}</text>
+        <text class="area-desc">{{item.desc}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>热门接单者推荐</text>
+      <text class="section-subtitle">评分高、完成量多的校园帮手</text>
+    </view>
+    <view class="runner-list">
+      <view class="runner-card card" wx:for="{{hotRunners}}" wx:key="id">
+        <view class="avatar-circle theme-{{item.avatarTheme}}">{{item.avatarText}}</view>
+        <view class="runner-main">
+          <view class="runner-top">
+            <text class="runner-name">{{item.nickname}}</text>
+            <text class="runner-score">评分 {{item.ratingText}}</text>
+          </view>
+          <text class="runner-desc">{{item.slogan}}</text>
+          <text class="runner-meta">累计完成 {{item.completedJobs}} 单</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section-block">
+    <view class="section-title">
+      <text>代拿流程</text>
+      <text class="section-subtitle">4 步完成发布到送达</text>
+    </view>
+    <view class="guide-grid">
+      <view class="guide-card card" wx:for="{{guides}}" wx:key="id">
+        <text class="guide-step">{{item.step}}</text>
+        <text class="guide-title">{{item.title}}</text>
+        <text class="guide-desc">{{item.desc}}</text>
+      </view>
+    </view>
+  </view>
+</view>

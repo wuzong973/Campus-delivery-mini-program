@@ -1,0 +1,61 @@
+/* 
+此文件为开发者工具生成，生成时间: 2026/4/10下午7:00:40
+使用方法：
+在 mine.wxss 文件末尾引入样式
+```
+@import "./mine-wxa-auto-dark.wxss";
+```
+ */
+
+@media (prefers-color-scheme: dark) {
+    .profile-card {
+        background: rgb(0, 0, 0);
+    }
+
+    .profile-name {
+        color: rgb(198, 213, 248);
+    }
+
+    .profile-desc {
+        color: rgb(110, 127, 153);
+    }
+
+    .profile-badge {
+        background: rgb(19, 25, 32);
+        color: rgb(0, 119, 237);
+    }
+
+    .profile-extra {
+        color: rgb(93, 106, 131);
+    }
+
+    .action-line {
+        border-bottom: rgb(0, 0, 0);
+    }
+
+    .action-title {
+        color: rgb(199, 212, 248);
+    }
+
+    .action-value {
+        color: rgb(89, 102, 127);
+    }
+
+    .contact-btn {
+        border: rgb(0, 0, 0);
+        background: rgb(19, 25, 32);
+        color: rgb(0, 119, 237);
+    }
+
+    .preview-title {
+        color: rgb(198, 210, 249);
+    }
+
+    .preview-desc {
+        color: rgb(110, 125, 152);
+    }
+
+    .preview-meta {
+        color: rgb(77, 90, 111);
+    }
+}

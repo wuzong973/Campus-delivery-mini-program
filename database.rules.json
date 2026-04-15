@@ -1,0 +1,44 @@
+{
+  "rules": [
+    {
+      "collection": "users",
+      "read": "auth != null && auth.openid == doc._openid",
+      "write": "auth != null && auth.openid == doc._openid"
+    },
+    {
+      "collection": "orders",
+      "read": "auth != null && (auth.openid == doc.publisherOpenId || auth.openid == doc.runnerOpenId || doc.status == 'pending')",
+      "write": "auth != null && (auth.openid == doc.publisherOpenId || auth.openid == doc.runnerOpenId)"
+    },
+    {
+      "collection": "notifications",
+      "read": "auth != null && auth.openid == doc.userOpenId",
+      "write": "auth != null && auth.openid == doc.userOpenId"
+    },
+    {
+      "collection": "favorites",
+      "read": "auth != null && auth.openid == doc.userOpenId",
+      "write": "auth != null && auth.openid == doc.userOpenId"
+    },
+    {
+      "collection": "withdrawals",
+      "read": "auth != null && auth.openid == doc.userOpenId",
+      "write": "auth != null && auth.openid == doc.userOpenId"
+    },
+    {
+      "collection": "payment_logs",
+      "read": "auth != null && auth.openid == doc.publisherOpenId",
+      "write": "false"
+    },
+    {
+      "collection": "system_stats",
+      "read": "auth != null",
+      "write": "false"
+    },
+    {
+      "collection": "abnormal_logs",
+      "read": "false",
+      "write": "false"
+    }
+  ]
+}

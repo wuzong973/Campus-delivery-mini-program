@@ -1,0 +1,64 @@
+/* 
+此文件为开发者工具生成，生成时间: 2026/4/10下午7:00:40
+使用方法：
+在 taskList.wxss 文件末尾引入样式
+```
+@import "./taskList-wxa-auto-dark.wxss";
+```
+ */
+
+@media (prefers-color-scheme: dark) {
+    .list-head-title {
+        color: rgb(199, 212, 248);
+    }
+
+    .list-head-desc {
+        color: rgb(101, 115, 141);
+    }
+
+    .list-badge {
+        background: rgb(19, 25, 32);
+        color: rgb(0, 119, 237);
+    }
+
+    .filter-label {
+        color: rgb(102, 116, 143);
+    }
+
+    .self-mark {
+        color: rgb(0, 124, 89);
+    }
+
+    .route-label {
+        color: rgb(17, 17, 17);
+    }
+
+    .route-pick {
+        background: rgb(0, 119, 237);
+    }
+
+    .route-send {
+        background: rgb(0, 124, 89);
+    }
+
+    .route-text {
+        color: rgb(177, 194, 228);
+    }
+
+    .meta-chip, .tag-area {
+        color: rgb(122, 140, 170);
+        background: rgb(20, 23, 27);
+    }
+
+    .publisher-name {
+        color: rgb(198, 210, 249);
+    }
+
+    .publisher-time {
+        color: rgb(78, 91, 112);
+    }
+
+    .detail-link {
+        color: rgb(0, 119, 237);
+    }
+}

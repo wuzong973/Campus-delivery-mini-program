@@ -1,0 +1,121 @@
+/* 
+此文件为开发者工具生成，生成时间: 2026/4/10下午7:00:40
+使用方法：
+在 index.wxss 文件末尾引入样式
+```
+@import "./index-wxa-auto-dark.wxss";
+```
+ */
+
+@media (prefers-color-scheme: dark) {
+    .home-head {
+        background: rgb(0, 0, 0);
+    }
+
+    .home-greet {
+        color: rgb(198, 213, 250);
+    }
+
+    .home-desc {
+        color: rgb(110, 126, 152);
+    }
+
+    .summary-item {
+        background: rgba(17, 17, 17, 0.9);
+    }
+
+    .summary-value {
+        color: rgb(0, 122, 241);
+    }
+
+    .summary-label {
+        color: rgb(101, 116, 142);
+    }
+
+    .banner-swiper {
+        background: linear-gradient(135deg, #156edc, #4ab8e8);
+    }
+
+    .banner-card {
+        color: rgb(255, 255, 255);
+        background: linear-gradient(135deg, #156edc, #4ab8e8);
+    }
+
+    .banner-blue {
+        background: linear-gradient(135deg, #156edc, #4ab8e8);
+    }
+
+    .banner-green {
+        background: linear-gradient(135deg, #148a62, #5fc9a0);
+    }
+
+    .banner-orange {
+        background: linear-gradient(135deg, #e67a35, #e8b35a);
+    }
+
+    .banner-tip {
+        background: rgba(255, 255, 255, 0.22);
+    }
+
+    .quick-card {
+        background: rgb(0, 0, 0);
+    }
+
+    .quick-title {
+        color: rgb(198, 210, 249);
+    }
+
+    .quick-desc {
+        color: rgb(95, 108, 132);
+    }
+
+    .notice-strip {
+        color: rgb(125, 142, 172);
+        background: rgb(0, 0, 0);
+    }
+
+    .price-scene {
+        color: rgb(100, 114, 140);
+    }
+
+    .price-main {
+        color: rgb(165, 44, 0);
+    }
+
+    .price-tip, .area-desc {
+        color: rgb(78, 91, 113);
+    }
+
+    .area-name {
+        color: rgb(199, 213, 247);
+    }
+
+    .runner-name {
+        color: rgb(199, 213, 247);
+    }
+
+    .runner-score {
+        color: rgb(0, 119, 237);
+    }
+
+    .runner-desc {
+        color: rgb(110, 125, 152);
+    }
+
+    .runner-meta {
+        color: rgb(78, 91, 112);
+    }
+
+    .guide-step {
+        background: rgb(19, 25, 32);
+        color: rgb(0, 119, 237);
+    }
+
+    .guide-title {
+        color: rgb(198, 210, 249);
+    }
+
+    .guide-desc {
+        color: rgb(102, 116, 143);
+    }
+}

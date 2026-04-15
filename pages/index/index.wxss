@@ -1,0 +1,275 @@
+.home-head {
+  padding: 28rpx;
+  background: linear-gradient(160deg, #ffffff, #eef7ff);
+}
+
+.home-greet {
+  display: block;
+  font-size: 42rpx;
+  font-weight: 700;
+  color: #20314d;
+}
+
+.home-desc {
+  display: block;
+  width: 460rpx;
+  margin-top: 12rpx;
+  color: #6f7f99;
+  line-height: 1.6;
+  font-size: 24rpx;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14rpx;
+  margin-top: 28rpx;
+}
+
+.summary-item {
+  padding: 22rpx 14rpx;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20rpx;
+  text-align: center;
+}
+
+.summary-value {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #1f82fb;
+}
+
+.summary-label {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #7a89a3;
+}
+
+.banner-swiper {
+  height: 280rpx;
+  border-radius: 26rpx;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1b7fff, #5ac9f5);
+}
+
+.banner-card {
+  height: 100%;
+  padding: 32rpx 28rpx;
+  border-radius: 26rpx;
+  color: #ffffff;
+  background: linear-gradient(135deg, #1b7fff, #5ac9f5);
+}
+
+.banner-blue {
+  background: linear-gradient(135deg, #1b7fff, #5ac9f5);
+}
+
+.banner-green {
+  background: linear-gradient(135deg, #19aa7a, #77dbb0);
+}
+
+.banner-orange {
+  background: linear-gradient(135deg, #ff8d42, #ffc06a);
+}
+
+.banner-tip {
+  display: inline-flex;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 22rpx;
+}
+
+.banner-title {
+  display: block;
+  margin-top: 24rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.banner-desc {
+  display: block;
+  width: 500rpx;
+  margin-top: 16rpx;
+  line-height: 1.7;
+  font-size: 24rpx;
+  opacity: 0.94;
+}
+
+.quick-grid,
+.guide-grid,
+.price-grid,
+.area-list {
+  display: grid;
+  gap: 18rpx;
+}
+
+.quick-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.quick-card {
+  min-height: 188rpx;
+  padding: 24rpx 22rpx;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.quick-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #243250;
+}
+
+.quick-desc {
+  display: block;
+  margin-top: 14rpx;
+  color: #8491aa;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.notice-strip {
+  padding: 22rpx 24rpx;
+  color: #5f708d;
+  font-size: 24rpx;
+  line-height: 1.7;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.price-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.price-card,
+.area-card {
+  padding: 22rpx;
+}
+
+.price-scene,
+.price-main,
+.price-tip,
+.area-name,
+.area-desc {
+  display: block;
+}
+
+.price-scene {
+  font-size: 24rpx;
+  color: #7d8ba6;
+}
+
+.price-main {
+  margin-top: 12rpx;
+  font-size: 36rpx;
+  color: #ff7a32;
+  font-weight: 700;
+}
+
+.price-tip,
+.area-desc {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #96a4bc;
+  line-height: 1.6;
+}
+
+.area-list {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.area-name {
+  font-size: 28rpx;
+  color: #22314b;
+  font-weight: 700;
+}
+
+.runner-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.runner-card {
+  display: flex;
+  gap: 20rpx;
+  padding: 22rpx;
+}
+
+.runner-main {
+  flex: 1;
+}
+
+.runner-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.runner-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #22314b;
+}
+
+.runner-score {
+  font-size: 24rpx;
+  color: #1e86ff;
+}
+
+.runner-desc {
+  display: block;
+  margin-top: 10rpx;
+  color: #71809b;
+  font-size: 24rpx;
+}
+
+.runner-meta {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #97a4bc;
+}
+
+.guide-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.guide-card {
+  min-height: 210rpx;
+  padding: 24rpx;
+}
+
+.guide-step {
+  display: inline-flex;
+  padding: 8rpx 14rpx;
+  border-radius: 14rpx;
+  background: #eef6ff;
+  color: #1e86ff;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.guide-title {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #243250;
+}
+
+.guide-desc {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #7b89a5;
+}

@@ -1,0 +1,167 @@
+.order-summary {
+  padding: 24rpx;
+}
+
+.summary-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16rpx;
+}
+
+.summary-mini-item {
+  padding: 18rpx 12rpx;
+  border-radius: 18rpx;
+  background: #f8fbff;
+  text-align: center;
+}
+
+.summary-mini-value {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #20304a;
+}
+
+.summary-mini-label {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #8a97b2;
+}
+
+.tabs-wrap {
+  display: flex;
+  gap: 14rpx;
+  flex-wrap: wrap;
+}
+
+.role-tabs .tab-item {
+  min-width: 180rpx;
+  justify-content: center;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 18rpx 22rpx;
+  border-radius: 18rpx;
+  background: #ffffff;
+  color: #61728f;
+  font-size: 26rpx;
+  box-shadow: 0 8rpx 24rpx rgba(30, 71, 128, 0.05);
+}
+
+.tab-item.active {
+  background: #eef6ff;
+  color: #1e86ff;
+  font-weight: 700;
+}
+
+.tab-count {
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  background: rgba(30, 134, 255, 0.12);
+  font-size: 22rpx;
+}
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.order-card {
+  padding: 24rpx;
+}
+
+.status-group {
+  display: flex;
+  gap: 10rpx;
+  align-items: center;
+}
+
+.pay-chip {
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+.pay-chip.paid {
+  background: #e9fbf7;
+  color: #11a57f;
+}
+
+.pay-chip.unpaid {
+  background: #fff2ed;
+  color: #f2734c;
+}
+
+.order-role {
+  padding: 10rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.role-publisher {
+  background: #eef6ff;
+  color: #1e86ff;
+}
+
+.role-runner {
+  background: #e9fbf7;
+  color: #11a57f;
+}
+
+.order-route {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  margin-top: 20rpx;
+}
+
+.order-route-text {
+  color: #32425e;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.runner-box {
+  margin-top: 18rpx;
+  padding: 18rpx;
+  border-radius: 18rpx;
+  background: #f8fbff;
+}
+
+.runner-text {
+  color: #51627d;
+  font-size: 24rpx;
+}
+
+.proof-thumb {
+  width: 100%;
+  height: 220rpx;
+  margin-top: 18rpx;
+  border-radius: 18rpx;
+  background: #eef4fb;
+}
+
+.order-meta {
+  margin-top: 20rpx;
+}
+
+.order-meta-text {
+  font-size: 22rpx;
+  color: #97a4bc;
+}
+
+.order-actions {
+  margin-top: 24rpx;
+}
+
+.action-btn {
+  height: 80rpx;
+  line-height: 80rpx;
+}

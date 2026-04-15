@@ -1,0 +1,159 @@
+.list-head {
+  padding: 28rpx;
+}
+
+.list-head-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #23314d;
+}
+
+.list-head-desc {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #7c8aa5;
+}
+
+.list-badge {
+  min-width: 116rpx;
+  padding: 16rpx 18rpx;
+  border-radius: 18rpx;
+  background: #eef6ff;
+  color: #1e86ff;
+  text-align: center;
+  font-weight: 700;
+}
+
+.filter-card {
+  padding: 24rpx;
+}
+
+.filter-group + .filter-group {
+  margin-top: 18rpx;
+}
+
+.filter-label {
+  display: block;
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  color: #7b89a5;
+}
+
+.filter-scroll {
+  white-space: nowrap;
+}
+
+.nowrap {
+  flex-wrap: nowrap;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.task-card {
+  padding: 24rpx;
+}
+
+.task-tags {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.self-mark {
+  color: #11a57f;
+  font-size: 22rpx;
+}
+
+.route-row {
+  display: flex;
+  gap: 14rpx;
+  margin-top: 20rpx;
+  align-items: flex-start;
+}
+
+.route-label {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  border-radius: 50%;
+  text-align: center;
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.route-pick {
+  background: #1e86ff;
+}
+
+.route-send {
+  background: #11a57f;
+}
+
+.route-text {
+  flex: 1;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: #30415d;
+}
+
+.meta-grid {
+  display: flex;
+  gap: 14rpx;
+  flex-wrap: wrap;
+  margin-top: 18rpx;
+}
+
+.meta-chip,
+.tag-area {
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  color: #61728f;
+  background: #f4f8fd;
+}
+
+.task-bottom {
+  margin-top: 24rpx;
+}
+
+.publisher-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.publisher-name,
+.publisher-time {
+  display: block;
+}
+
+.publisher-name {
+  font-size: 26rpx;
+  color: #243250;
+  font-weight: 600;
+}
+
+.publisher-time {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #97a4bc;
+}
+
+.detail-link {
+  font-size: 24rpx;
+  color: #1e86ff;
+  font-weight: 600;
+}
+
+.empty-btn-wrap {
+  margin-top: 24rpx;
+}
