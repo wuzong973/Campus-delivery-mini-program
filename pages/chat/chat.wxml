@@ -1,0 +1,66 @@
+<view class="container">
+  <view class="section-title">
+    <text>聊天会话</text>
+    <text class="section-subtitle">未读 {{totalUnreadCount}} 条</text>
+  </view>
+
+  <view class="session-list" wx:if="{{list.length}}">
+    <view
+      class="card session-card"
+      wx:for="{{list}}"
+      wx:key="id"
+      data-session-id="{{item.sessionId}}"
+      bindtap="openSession"
+    >
+      <view class="session-main">
+        <image
+          class="avatar-circle avatar-small"
+          wx:if="{{item.targetUser && item.targetUser.avatarUrl}}"
+          src="{{item.targetUser.avatarUrl}}"
+        ></image>
+        <view
+          class="avatar-circle avatar-small theme-{{item.targetUser.avatarTheme || 'ocean'}}"
+          wx:else
+        >
+          {{item.targetUser ? item.targetUser.avatarText : '聊'}}
+        </view>
+
+        <view class="session-body">
+          <view class="row-between session-top">
+            <text class="session-name">
+              {{item.targetUser ? item.targetUser.nickname : '聊天对象'}}
+            </text>
+            <text class="session-time">{{item.lastMessageAtText}}</text>
+          </view>
+
+          <view class="row-between session-middle">
+            <text class="session-preview">{{item.lastMessageText}}</text>
+            <view class="unread-badge" wx:if="{{item.unreadCount > 0}}">
+              {{item.unreadCount > 99 ? '99+' : item.unreadCount}}
+            </view>
+          </view>
+
+          <view class="session-meta">
+            <text class="tag {{item.orderType === 'takeout' ? 'tag-takeout' : 'tag-parcel'}}">
+              {{item.orderTypeText}}
+            </text>
+            <text class="tag tag-{{item.orderStatus === 'delivered' ? 'accepted' : item.orderStatus}}">
+              {{item.orderStatusText}}
+            </text>
+            <text class="meta-text">{{item.rewardText}}</text>
+          </view>
+
+          <text class="session-address">{{item.deliveryAddress}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card list-empty section-block" wx:else>
+    <text class="list-empty-title">还没有聊天会话</text>
+    <text>当发布者和接单者开始沟通后，会话会自动同步到这里。</text>
+    <view class="empty-action">
+      <button class="secondary-btn" bindtap="goOrder">去订单页查看</button>
+    </view>
+  </view>
+</view>

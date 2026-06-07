@@ -25,7 +25,7 @@ exports.main = async (event) => {
   try {
     // 1. 基础数据校验 (可根据业务需求扩展)
     if (!payload.reward || payload.reward <= 0) {
-      return { success: false, message: '悬赏金额必须大于0' };
+      return { success: false, message: '金额必须大于0' };
     }
     if (!payload.deliveryAddress || !payload.pickupAddress) {
       return { success: false, message: '地址信息不完整' };

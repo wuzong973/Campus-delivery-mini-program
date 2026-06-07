@@ -41,7 +41,7 @@
   </view>
 
   <view class="card form-card section-block">
-    <text class="form-title">地址与履约信息</text>
+    <text class="form-title">地址与时间信息</text>
 
     <view class="field">
       <view class="field-label">
@@ -60,7 +60,7 @@
         <text>送达地址</text>
         <text class="field-required">*</text>
       </view>
-      <input class="field-input" placeholder="例如：10号宿舍楼 406" value="{{form.deliveryAddress}}" data-field="deliveryAddress" bindinput="handleInput" />
+      <input class="field-input" placeholder="例如：10 号宿舍楼 406" value="{{form.deliveryAddress}}" data-field="deliveryAddress" bindinput="handleInput" />
       <view class="field-actions">
         <text class="link-text" bindtap="fillCommonAddress">填入常用地址</text>
         <text class="link-text" data-field="delivery" bindtap="chooseLocation">地图辅助定位</text>
@@ -74,7 +74,7 @@
           <text>送达楼栋</text>
           <text class="field-required">*</text>
         </view>
-        <input class="field-input" placeholder="例如：10号楼" value="{{form.deliveryBuilding}}" data-field="deliveryBuilding" bindinput="handleInput" />
+        <input class="field-input" placeholder="例如：10 号楼" value="{{form.deliveryBuilding}}" data-field="deliveryBuilding" bindinput="handleInput" />
       </view>
 
       <view class="field">
@@ -125,10 +125,10 @@
 
     <view class="field">
       <view class="field-label">
-        <text>基础悬赏金额</text>
+        <text>基础金额</text>
       </view>
-      <input class="field-input" type="digit" placeholder="最低 2.00 元" value="{{form.basePrice}}" data-field="basePrice" bindinput="handlePriceInput" bindblur="handlePriceBlur" />
-      <text class="field-tip">最低悬赏金额为 2.00 元，您可以根据需求提高悬赏。</text>
+      <input class="field-input" type="digit" placeholder="请输入基础金额，不低于 2.00" value="{{form.basePrice}}" data-field="basePrice" bindinput="handleBasePriceInput" bindblur="handleBasePriceBlur" />
+      <text class="field-tip">基础金额可手动填写，但不能低于 2.00 元，附加费用将根据服务类型自动计算。</text>
     </view>
 
     <view class="field" wx:if="{{form.type === 'parcel'}}">
@@ -148,7 +148,7 @@
 
     <view class="field">
       <view class="field-label">
-        <text>加急服务（+¥{{dynamicFees.urgentFee.toFixed(2)}}）</text>
+        <text>加急服务（+1元）</text>
       </view>
       <switch checked="{{form.isUrgent}}" data-field="isUrgent" bindchange="handleSwitchChange" />
       <text class="field-tip">加急订单会优先展示，更快被接单。</text>
@@ -162,7 +162,7 @@
       <view class="fee-line" wx:if="{{summary.largeItem > 0}}">大件附加费：<text class="fee-value">+¥{{summaryFormatted.largeItem}}</text></view>
       <view class="fee-line" wx:if="{{summary.itemCount > 0}}">多件附加费：<text class="fee-value">+¥{{summaryFormatted.itemCount}}</text></view>
       <view class="fee-line" wx:if="{{summary.urgent > 0}}">加急附加费：<text class="fee-value">+¥{{summaryFormatted.urgent}}</text></view>
-      <view class="fee-line total-line">总悬赏金额：<text class="fee-value total-value">¥{{summaryFormatted.total}}</text></view>
+      <view class="fee-line total-line">总金额：<text class="fee-value total-value">¥{{summaryFormatted.total}}</text></view>
       <view class="fee-line">平台抽成：<text class="fee-value">{{feeInfo.platformFee}}</text></view>
       <view class="fee-line">跑腿预计收益：<text class="fee-value">{{feeInfo.runnerIncome}}</text></view>
     </view>

@@ -8,12 +8,18 @@ cloud.init({
 const db = cloud.database();
 
 function buildTenpayConfig() {
-  const appid = process.env.WECHAT_PAY_APP_ID || process.env.APPID || "wx4f4f74eaf4b7d100";
-  const mchid = process.env.WECHAT_PAY_MCH_ID || process.env.MCHID || "1110927390";
+  const appid =
+    process.env.WECHAT_PAY_APP_ID || process.env.APPID || "wx4f4f74eaf4b7d100";
+  const mchid =
+    process.env.WECHAT_PAY_MCH_ID || process.env.MCHID || "1110927390";
   const partnerKey =
-    process.env.WECHAT_PAY_API_V2_KEY || process.env.API_KEY_V2 || "96c9fb2d7d81b204b368326eefce3dbd";
+    process.env.WECHAT_PAY_API_V2_KEY ||
+    process.env.API_KEY_V2 ||
+    "96c9fb2d7d81b204b368326eefce3dbd";
   const notify_url =
-    process.env.WECHAT_PAY_NOTIFY_URL || process.env.NOTIFY_URL || "https://wzl136122.cn/pay_notify.php";
+    process.env.WECHAT_PAY_NOTIFY_URL ||
+    process.env.NOTIFY_URL ||
+    "https://wzl136122.cn/pay_notify.php";
 
   if (!appid || !mchid || !partnerKey || !notify_url) {
     throw new Error(

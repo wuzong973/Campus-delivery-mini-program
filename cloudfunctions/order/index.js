@@ -429,7 +429,8 @@ function getPricingDetails(payload) {
   const itemCount = Math.max(1, parseInt(payload.itemCount || 1, 10) || 1);
   const isUrgent = !!payload.isUrgent;
   const baseReward = PRICING_RULES.baseReward;
-  const largeItemFee = type === "parcel" && isLargeItem ? PRICING_RULES.largeItemFee : 0;
+  const largeItemFee =
+    type === "parcel" && isLargeItem ? PRICING_RULES.largeItemFee : 0;
   const itemCountFee =
     type === "helpBuy" && itemCount > 5 ? PRICING_RULES.helpBuyExtraFee : 0;
   const urgentFee = isUrgent ? PRICING_RULES.urgentFee : 0;
@@ -712,88 +713,6 @@ async function getHomeData(openid) {
   };
 }
 
-async function publishOrder(openid, payload) {
-  const currentUser = await getCurrentUser(openid);
-  const profileState = getProfileState(currentUser || {});
-
-  if (!currentUser || !profileState.isComplete) {
-    throw new Error(
-      "请先完善个人资料：" +
-        (profileState.missingText || "昵称、手机号、常用地址"),
-    );
-  }
-
-  if (!payload.receiverName || !payload.receiverName.trim()) {
-    throw new Error("请填写收件人姓名");
-  }
-
-  if (!isPhone(payload.contactPhone || "")) {
-    throw new Error("请填写正确的手机号");
-  }
-
-  if (!payload.pickupAddress || !payload.pickupAddress.trim()) {
-    throw new Error("请填写取件地址");
-  }
-
-  if (!payload.deliveryAddress || !payload.deliveryAddress.trim()) {
-    throw new Error("请填写送达地址");
-  }
-
-  if (!payload.remark || !payload.remark.trim()) {
-    throw new Error("备注信息为必填项");
-  }
-
-  if (payload.pickupAddress.trim() === payload.deliveryAddress.trim()) {
-    throw new Error("取件地址和送达地址不能相同");
-  }
-
-  const settlement = getSettlement(payload.reward);
-  if (!settlement.rewardAmount || settlement.rewardAmount <= 0) {
-    throw new Error("请输入正确的悬赏金额");
-  }
-
-  const outTradeNo = `od_${cloud.getWXContext().MCHID}_${Date.now()}`;
-
-  const addResult = await db.collection("orders").add({
-    data: {
-      publisherOpenId: openid,
-      receiverName: payload.receiverName.trim(),
-      contactPhone: payload.contactPhone.trim(),
-      type: payload.type || "takeout",
-      pickupAddress: payload.pickupAddress.trim(),
-      deliveryAddress: payload.deliveryAddress.trim(),
-      pickupLocation: payload.pickupLocation || null,
-      deliveryLocation: payload.deliveryLocation || null,
-      campusAreaText: extractCampusArea(payload.pickupAddress),
-      pickupTimeType: payload.pickupTimeType || "asap",
-      pickupTimeValue: payload.pickupTimeValue || "",
-      deliveryBuilding: String(payload.deliveryBuilding || "").trim(),
-      deliveryRoom: String(payload.deliveryRoom || "").trim(),
-      attachments: Array.isArray(payload.attachments)
-        ? payload.attachments.slice(0, 3)
-        : [],
-      remark: payload.remark.trim(),
-      rewardAmount: settlement.rewardAmount,
-      platformFee: settlement.platformFee,
-      runnerIncome: settlement.runnerIncome,
-      payStatus: "unpaid",
-      paymentMode: "",
-      outTradeNo, // 商户订单号
-      refundStatus: "",
-      status: "pending",
-      runnerOpenId: "",
-      rating: null,
-      deliveryProof: null,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    },
-  });
-
-  await detectPublishFrequency(openid);
-  const order = await db.collection("orders").doc(addResult._id).get();
-  return (await buildEnrichedOrders([order.data], openid))[0];
-}
-
 async function toggleFavorite(openid, orderId) {
   const result = await db
     .collection("favorites")
@@ -915,48 +834,6 @@ async function acceptTask(openid, orderId, currentLocation) {
   return getTaskDetail(openid, orderId);
 }
 
-async function uploadDeliveryProof(openid, orderId, fileID, note) {
-  if (!fileID) {
-    throw new Error("请先上传送达照片");
-  }
-
-  const result = await db.collection("orders").doc(orderId).get();
-  const order = result.data;
-
-  if (order.runnerOpenId !== openid) {
-    throw new Error("仅接单者可上传送达照片");
-  }
-
-  if (order.status !== "accepted") {
-    throw new Error("当前订单状态不能上传送达照片");
-  }
-
-  await db
-    .collection("orders")
-    .doc(orderId)
-    .update({
-      data: {
-        deliveryProof: {
-          fileID,
-          note: note || "",
-          uploadedAt: Date.now(),
-        },
-        status: "delivered",
-        deliveredAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    });
-
-  await createNotification(
-    order.publisherOpenId,
-    "送达照片已上传",
-    "接单者已上传送达照片，订单可以进入完成结算流程。",
-    "delivery_proof",
-    orderId,
-  );
-  return getTaskDetail(openid, orderId);
-}
-
 async function upsertFinanceStats(totalFee, platformFee, runnerIncome) {
   try {
     await db
@@ -983,72 +860,6 @@ async function upsertFinanceStats(totalFee, platformFee, runnerIncome) {
         },
       });
   }
-}
-
-async function completeOrder(openid, orderId) {
-  const runner = await getCurrentUser(openid);
-  const result = await db.collection("orders").doc(orderId).get();
-  const order = result.data;
-
-  if (order.runnerOpenId !== openid) {
-    throw new Error("仅接单者可完成订单");
-  }
-
-  if (order.status !== "delivered") {
-    throw new Error("请先上传送达照片");
-  }
-
-  await db
-    .collection("orders")
-    .doc(orderId)
-    .update({
-      data: {
-        status: "completed",
-        completedAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    });
-
-  const runnerUser = await getCurrentUser(openid);
-  const publisherUser = await getCurrentUser(order.publisherOpenId);
-
-  await db
-    .collection("users")
-    .doc(runnerUser._id)
-    .update({
-      data: {
-        walletBalance: _.inc(roundMoney(order.runnerIncome)),
-        totalIncome: _.inc(roundMoney(order.runnerIncome)),
-        completedJobs: _.inc(1),
-        updatedAt: Date.now(),
-      },
-    });
-
-  if (publisherUser) {
-    await db
-      .collection("users")
-      .doc(publisherUser._id)
-      .update({
-        data: {
-          totalSpending: _.inc(roundMoney(order.rewardAmount)),
-          updatedAt: Date.now(),
-        },
-      });
-  }
-
-  await upsertFinanceStats(
-    order.rewardAmount,
-    order.platformFee,
-    order.runnerIncome,
-  );
-  await createNotification(
-    order.publisherOpenId,
-    "订单已完成",
-    (runner.nickname || "接单者") + " 已完成你的订单，赏金已自动结算。",
-    "order_complete",
-    orderId,
-  );
-  return getTaskDetail(openid, orderId);
 }
 
 async function cancelOrder(openid, orderId) {
@@ -1422,22 +1233,28 @@ async function uploadDeliveryProof(openid, orderId, fileID, note) {
 
   try {
     if (order.deliveryProof === null) {
-      await db.collection("orders").doc(orderId).update({
+      await db
+        .collection("orders")
+        .doc(orderId)
+        .update({
+          data: {
+            deliveryProof: _.remove(),
+            updatedAt: Date.now(),
+          },
+        });
+    }
+
+    await db
+      .collection("orders")
+      .doc(orderId)
+      .update({
         data: {
-          deliveryProof: _.remove(),
+          deliveryProof,
+          status: "delivered",
+          deliveredAt: Date.now(),
           updatedAt: Date.now(),
         },
       });
-    }
-
-    await db.collection("orders").doc(orderId).update({
-      data: {
-        deliveryProof,
-        status: "delivered",
-        deliveredAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    });
   } catch (error) {
     await recordAbnormal(openid, "upload_delivery_proof_fail", error.message, {
       orderId,
@@ -1469,22 +1286,28 @@ async function settleOrderIfNeeded(orderId, order, runnerUser, publisherUser) {
     // ignore not found
   }
 
-  await db.collection("users").doc(runnerUser._id).update({
-    data: {
-      walletBalance: _.inc(roundMoney(order.runnerIncome)),
-      totalIncome: _.inc(roundMoney(order.runnerIncome)),
-      completedJobs: _.inc(1),
-      updatedAt: Date.now(),
-    },
-  });
-
-  if (publisherUser) {
-    await db.collection("users").doc(publisherUser._id).update({
+  await db
+    .collection("users")
+    .doc(runnerUser._id)
+    .update({
       data: {
-        totalSpending: _.inc(roundMoney(order.rewardAmount)),
+        walletBalance: _.inc(roundMoney(order.runnerIncome)),
+        totalIncome: _.inc(roundMoney(order.runnerIncome)),
+        completedJobs: _.inc(1),
         updatedAt: Date.now(),
       },
     });
+
+  if (publisherUser) {
+    await db
+      .collection("users")
+      .doc(publisherUser._id)
+      .update({
+        data: {
+          totalSpending: _.inc(roundMoney(order.rewardAmount)),
+          updatedAt: Date.now(),
+        },
+      });
   }
 
   await upsertFinanceStats(
@@ -1538,13 +1361,16 @@ async function completeOrder(openid, orderId) {
   await settleOrderIfNeeded(orderId, order, runner, publisherUser);
 
   if (order.status !== "completed") {
-    await db.collection("orders").doc(orderId).update({
-      data: {
-        status: "completed",
-        completedAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    });
+    await db
+      .collection("orders")
+      .doc(orderId)
+      .update({
+        data: {
+          status: "completed",
+          completedAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      });
   }
 
   await createNotification(
