@@ -28,10 +28,10 @@
     <text class="form-title">发起提现</text>
     <view class="field">
       <view class="field-label">
-        <text>提现金额</text>
+        <text>提现金额（请确保微信已开启“允许通过手机号向我转账”）</text>
       </view>
       <input class="field-input" type="digit" placeholder="请输入提现金额" value="{{amount}}" bindinput="handleInput" />
-      <text class="field-tip">提现申请提交后，会进入管理员审核流程。</text>
+      <text class="field-tip">提现申请提交后，会进入管理员审核流程。（请确保微信已开启“允许通过手机号向我转账”）</text>
     </view>
     <button class="primary-btn" loading="{{submitting}}" disabled="{{submitting}}" bindtap="submitWithdraw">提交提现申请</button>
   </view>

@@ -67,7 +67,8 @@
 
       <view class="row-between task-bottom">
         <view class="publisher-wrap">
-          <view class="avatar-circle avatar-small theme-{{item.publisher.avatarTheme}}">{{item.publisher.avatarText}}</view>
+          <image class="avatar-circle avatar-small" src="{{item.publisher.avatarUrl}}" wx:if="{{item.publisher.avatarUrl}}"></image>
+          <view class="avatar-circle avatar-small theme-{{item.publisher.avatarTheme}}" wx:else>{{item.publisher.avatarText}}</view>
           <view>
             <text class="publisher-name">{{item.publisher.nickname}}</text>
             <text class="publisher-time">{{item.createdAtText}}</text>

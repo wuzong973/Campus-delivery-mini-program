@@ -1,10 +1,10 @@
-const config = require('./config');
-const { getServiceObject } = require('./cloudService');
+const config = require("./config");
+const request = require("./request");
 
-const SESSION_KEY = 'CAMPUS_RUNNER_SESSION';
+const SESSION_KEY = "CAMPUS_RUNNER_SESSION";
 
-let cloudInitialized = false;
 let loginPromise = null;
+let loginPromiseSequence = 0;
 
 function getCachedSession() {
   return wx.getStorageSync(SESSION_KEY) || null;
@@ -15,30 +15,28 @@ function setCachedSession(session) {
   return session;
 }
 
-function initCloud() {
-  if (cloudInitialized) {
-    return true;
+function sanitizeSession(session) {
+  if (!session || typeof session !== "object") {
+    return null;
   }
 
-  if (!wx.cloud) {
-    throw new Error('当前微信基础库不支持云开发，请升级微信开发者工具后重试');
-  }
-
-  wx.cloud.init({
-    env: config.cloudEnvId || wx.cloud.DYNAMIC_CURRENT_ENV,
-    traceUser: true
-  });
-  cloudInitialized = true;
-  return true;
+  return {
+    mode: session.mode || "http",
+    token: session.token || "",
+    user: session.user || null,
+    openid: session.openid || "",
+  };
 }
 
 function updateCachedSession(result) {
-  const session = {
-    mode: 'cloud',
+  const session = sanitizeSession({
+    mode: "http",
+    token: result && result.token ? result.token : "",
     user: result && result.user ? result.user : null,
-    openid: result && result.openid ? result.openid : ''
-  };
+    openid: result && result.openid ? result.openid : "",
+  });
 
+  request.setToken(session.token);
   setCachedSession(session);
   return session;
 }
@@ -57,43 +55,115 @@ function getCachedUser() {
 
 function getOpenId() {
   const session = getCachedSession();
-  return session ? session.openid || '' : '';
+  return session ? session.openid || "" : "";
 }
 
-function login(forceRefresh, userInfo) {
-  initCloud();
+function initCloud() {
+  return true;
+}
 
+function clearSession() {
+  request.clearToken();
+  wx.removeStorageSync(SESSION_KEY);
+}
+
+function waitForLogin() {
+  if (loginPromise) {
+    return loginPromise;
+  }
+
+  const cachedSession = sanitizeSession(getCachedSession());
+  if (cachedSession && cachedSession.token && cachedSession.openid) {
+    request.setToken(cachedSession.token);
+    setCachedSession(cachedSession);
+    return Promise.resolve(cachedSession);
+  }
+
+  return login(false);
+}
+
+function login(forceRefresh, userInfo, openid) {
   if (!forceRefresh) {
-    const cachedSession = getCachedSession();
-    if (cachedSession && cachedSession.openid) {
+    const cachedSession = sanitizeSession(getCachedSession());
+    if (cachedSession && cachedSession.token && cachedSession.openid) {
+      request.setToken(cachedSession.token);
+      setCachedSession(cachedSession);
       return Promise.resolve(cachedSession);
     }
+
     if (loginPromise) {
       return loginPromise;
     }
   }
 
+  const normalizedOpenid = String(openid || "").trim();
+  const currentLoginSeq = ++loginPromiseSequence;
+
+  if (normalizedOpenid) {
+    loginPromise = request
+      .request({
+        url: "/auth/login",
+        method: "POST",
+        data: {
+          openid: normalizedOpenid,
+          userInfo: userInfo || null,
+        },
+      })
+      .then((result) => updateCachedSession(result || {}))
+      .catch((error) => {
+        clearSession();
+        throw error;
+      })
+      .finally(() => {
+        if (loginPromiseSequence === currentLoginSeq) {
+          loginPromise = null;
+        }
+      });
+
+    return loginPromise;
+  }
+
   loginPromise = new Promise((resolve, reject) => {
     wx.login({
       success(loginRes) {
-        getServiceObject().weappLogin({
-          code: loginRes.code,
-          userInfo: userInfo || null
-        }).then(result => {
-          resolve(updateCachedSession(result || {}));
-        }).catch(reject);
+        if (!loginRes || !loginRes.code) {
+          reject(new Error("微信登录失败，未拿到登录 code"));
+          return;
+        }
+
+        request
+          .request({
+            url: "/auth/login",
+            method: "POST",
+            data: {
+              code: loginRes.code,
+              userInfo: userInfo || null,
+              appId: config.appId,
+            },
+          })
+          .then((result) => {
+            resolve(updateCachedSession(result || {}));
+          })
+          .catch((error) => {
+            clearSession();
+            reject(error);
+          });
       },
-      fail: reject
+      fail(error) {
+        reject(new Error((error && error.errMsg) || "微信登录失败"));
+      },
     });
   }).finally(() => {
-    loginPromise = null;
+    if (loginPromiseSequence === currentLoginSeq) {
+      loginPromise = null;
+    }
   });
 
   return loginPromise;
 }
 
 function ensureLogin() {
-  return login(false);
+  return waitForLogin();
 }
 
 module.exports = {
@@ -104,19 +174,21 @@ module.exports = {
   getOpenId,
   updateCachedUser,
   updateCachedSession,
+  clearSession,
+  waitForLogin,
   isLocalDemo() {
     return false;
   },
   getRuntimeMode() {
-    return 'cloud';
+    return "http";
   },
   getFallbackReason() {
-    return '';
+    return "";
   },
   canFallbackToLocal() {
     return false;
   },
   switchToLocal() {
-    return Promise.reject(new Error('项目已切换为纯云开发模式，请检查云环境配置'));
-  }
+    return Promise.reject(new Error("当前项目已经切换为自建后端模式"));
+  },
 };

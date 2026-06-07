@@ -74,6 +74,10 @@
   background: linear-gradient(135deg, #ff8d42, #ffc06a);
 }
 
+.banner-blank {
+  background: linear-gradient(135deg, #ff4d4f, #ff8a8b);
+}
+
 .banner-tip {
   display: inline-flex;
   padding: 8rpx 18rpx;
@@ -196,6 +200,22 @@
   display: flex;
   flex-direction: column;
   gap: 18rpx;
+}
+
+.quick-title-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.badge {
+  margin-left: 10rpx;
+  padding: 0 10rpx;
+  background-color: #ff4d4f;
+  color: #fff;
+  border-radius: 16rpx;
+  font-size: 20rpx;
+  line-height: 32rpx;
+  height: 32rpx;
 }
 
 .runner-card {

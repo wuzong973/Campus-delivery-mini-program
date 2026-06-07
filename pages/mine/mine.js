@@ -14,8 +14,8 @@ function shouldPollNotificationsInDev() {
   }
 }
 
-Page({
-  data: {
+function createDefaultMineData() {
+  return {
     initialized: false,
     loading: true,
     profile: {
@@ -29,16 +29,38 @@ Page({
     stats: {
       publishedCount: 0,
       acceptedCount: 0,
-      income: "￥0.00",
-      spending: "￥0.00",
+      income: "¥0.00",
+      spending: "¥0.00",
       processingCount: 0,
       pendingCount: 0,
+      availableBalance: "¥0.00",
     },
     publishedTasks: [],
     acceptedTasks: [],
     notifications: [],
     collectionCount: 0,
     unreadCount: 0,
+  };
+}
+
+Page({
+  data: createDefaultMineData(),
+
+  // 分享给好友：定义本方法后，右上角胶囊菜单才会显示「转发」并支持「复制链接」
+  onShareAppMessage() {
+    return {
+      title: "校园代拿 - 校园跑腿互助平台",
+      path: "/pages/mine/mine",
+      imageUrl: ""
+    };
+  },
+
+  // 分享到朋友圈：定义本方法后，右上角菜单支持「分享到朋友圈」
+  onShareTimeline() {
+    return {
+      title: "校园代拿 - 校园跑腿互助平台",
+      query: ""
+    };
   },
 
   onLoad() {
@@ -67,7 +89,7 @@ Page({
 
   loadPageData(showLoading) {
     if (showLoading) {
-      wx.showLoading({ title: "加载中" });
+      wx.showLoading({ title: "加载中", mask: true });
     }
 
     const wasInitialized = this.data.initialized;
@@ -76,24 +98,14 @@ Page({
       .getMineData()
       .then((data) => {
         const profile = Object.assign(
-          {
-            nickname: "校园同学",
-            slogan: "完善资料后，接单和发布都会更高效。",
-            phone: "未设置",
-            commonAddress: "未设置",
-            avatarTheme: "ocean",
-            avatarText: "我",
-          },
-          data.profile,
-          {
-            nickname: data.profile.nickname || "校园同学",
-            slogan:
-              data.profile.slogan || "完善资料后，接单和发布都会更高效。",
-            phone: data.profile.phone || "未设置",
-            commonAddress: data.profile.commonAddress || "未设置",
-            avatarTheme: data.profile.avatarTheme || "ocean",
-            avatarText: data.profile.avatarText || "我",
-          },
+          {},
+          createDefaultMineData().profile,
+          data.profile || {},
+        );
+        const stats = Object.assign(
+          {},
+          createDefaultMineData().stats,
+          data.stats || {},
         );
 
         this.setData(
@@ -101,22 +113,12 @@ Page({
             initialized: true,
             loading: false,
             profile,
-            stats: Object.assign(
-              {
-                publishedCount: 0,
-                acceptedCount: 0,
-                income: "￥0.00",
-                spending: "￥0.00",
-                processingCount: 0,
-                pendingCount: 0,
-              },
-              data.stats,
-            ),
-            publishedTasks: data.publishedTasks,
-            acceptedTasks: data.acceptedTasks,
-            notifications: data.notifications,
-            collectionCount: data.collectionCount,
-            unreadCount: data.unreadCount,
+            stats,
+            publishedTasks: data.publishedTasks || [],
+            acceptedTasks: data.acceptedTasks || [],
+            notifications: data.notifications || [],
+            collectionCount: Number(data.collectionCount || 0),
+            unreadCount: Number(data.unreadCount || 0),
           },
           () => {
             if (!wasInitialized) {
@@ -127,13 +129,19 @@ Page({
         );
       })
       .catch((error) => {
+        this.setData({
+          initialized: true,
+          loading: false,
+        });
         wx.showToast({
           title: error.message || "加载失败",
           icon: "none",
         });
       })
       .finally(() => {
-        wx.hideLoading();
+        if (showLoading) {
+          wx.hideLoading();
+        }
         wx.stopPullDownRefresh();
       });
   },
@@ -161,6 +169,7 @@ Page({
     } catch (e) {
       /* ignore */
     }
+
     this.notificationWatcher = null;
 
     api
@@ -180,8 +189,8 @@ Page({
         this.notificationWatcher = watcher;
         this._watchFailureRetries = 0;
       })
-      .catch((err) => {
-        console.warn("notifications watch start failed", err);
+      .catch((error) => {
+        console.warn("notifications watch start failed", error);
         this._scheduleWatchRecovery();
       });
   },
@@ -191,14 +200,12 @@ Page({
       return;
     }
 
-    this._watchFailureRetries =
-      (this._watchFailureRetries || 0) + 1;
+    this._watchFailureRetries = (this._watchFailureRetries || 0) + 1;
     if (this._watchFailureRetries > MAX_WATCH_FAILURE_RETRIES) {
       return;
     }
 
-    const delay =
-      WATCH_RETRY_DELAYS_MS[this._watchFailureRetries - 1] || 8000;
+    const delay = WATCH_RETRY_DELAYS_MS[this._watchFailureRetries - 1] || 8000;
 
     if (this._watchRecoverTimer) {
       clearTimeout(this._watchRecoverTimer);
@@ -245,6 +252,7 @@ Page({
     } catch (e) {
       /* ignore */
     }
+
     this.notificationWatcher = null;
 
     if (shouldPollNotificationsInDev()) {
@@ -330,20 +338,20 @@ Page({
   openDetail(event) {
     const id = event.currentTarget.dataset.id;
     wx.navigateTo({
-      url: "/pages/taskDetail/taskDetail?id=" + id + "&from=mine",
+      url: `/pages/taskDetail/taskDetail?id=${id}&from=mine`,
     });
   },
 
   handleSettings() {
     wx.showActionSheet({
-      itemList: ["重新同步云端资料", "进入收益钱包"],
+      itemList: ["重新同步资料", "进入收益钱包"],
       success: (result) => {
         if (result.tapIndex !== 0) {
           this.goWallet();
           return;
         }
 
-        wx.showLoading({ title: "同步中" });
+        wx.showLoading({ title: "同步中", mask: true });
         api
           .getCurrentUserProfile()
           .then(() => {

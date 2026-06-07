@@ -2,7 +2,8 @@
   <view class="profile-card card">
     <view class="row-between">
       <view class="profile-main">
-        <view class="avatar-circle avatar-large theme-{{profile.avatarTheme}}">{{profile.avatarText}}</view>
+        <image class="avatar-circle avatar-large" src="{{profile.avatarUrl}}" wx:if="{{profile.avatarUrl}}"></image>
+        <view class="avatar-circle avatar-large theme-{{profile.avatarTheme}}" wx:else>{{profile.avatarText}}</view>
         <view class="profile-text">
           <text class="profile-name">{{profile.nickname}}</text>
           <text class="profile-desc">{{profile.slogan}}</text>

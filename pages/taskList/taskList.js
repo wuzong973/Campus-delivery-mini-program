@@ -32,6 +32,23 @@ Page({
     }
   },
 
+  // 分享给好友：定义本方法后，右上角胶囊菜单才会显示「转发」并支持「复制链接」
+  onShareAppMessage() {
+    return {
+      title: "校园代拿 - 来看看有哪些代拿任务",
+      path: "/pages/taskList/taskList",
+      imageUrl: ""
+    };
+  },
+
+  // 分享到朋友圈：定义本方法后，右上角菜单支持「分享到朋友圈」
+  onShareTimeline() {
+    return {
+      title: "校园代拿 - 来看看有哪些代拿任务",
+      query: ""
+    };
+  },
+
   onLoad() {
     this.loadTasks(true);
   },
@@ -124,7 +141,9 @@ Page({
         icon: 'none'
       });
     }).finally(() => {
-      wx.hideLoading();
+      if (showLoading) {
+        wx.hideLoading();
+      }
       wx.stopPullDownRefresh();
     });
   },
