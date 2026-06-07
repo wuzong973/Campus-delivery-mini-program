@@ -1,64 +1,54 @@
+const config = require("./config");
+
 function isCloudFileId(value) {
   return typeof value === "string" && value.indexOf("cloud://") === 0;
 }
 
-function getTempUrlMap(fileIds) {
-  const unique = [
-    ...new Set((fileIds || []).filter(isCloudFileId)),
-  ];
-
-  if (!unique.length) {
-    return Promise.resolve({});
+function toDisplayUrl(value) {
+  if (!value) {
+    return "";
   }
 
-  return wx.cloud
-    .getTempFileURL({
-      fileList: unique.map((fileID) => ({
-        fileID,
-        maxAge: 86400,
-      })),
-    })
-    .then((res) => {
-      const map = {};
-      (res.fileList || []).forEach((item) => {
-        if (item.status === 0 && item.tempFileURL) {
-          map[item.fileID] = item.tempFileURL;
-        }
-      });
-      return map;
-    })
-    .catch(() => ({}));
+  if (/^https?:\/\//.test(value) || isCloudFileId(value)) {
+    return value;
+  }
+
+  return `${config.uploadBaseUrl}${value.startsWith("/") ? "" : "/"}${value}`;
 }
 
-function withProofDisplayUrl(item, urlMap) {
+function withProofDisplayUrl(item) {
   if (!item || !item.deliveryProof || !item.deliveryProof.fileID) {
-    return item;
-  }
-
-  const fid = item.deliveryProof.fileID;
-  const displayUrl = urlMap[fid];
-  if (!displayUrl) {
     return item;
   }
 
   return Object.assign({}, item, {
     deliveryProof: Object.assign({}, item.deliveryProof, {
-      displayUrl,
+      displayUrl: toDisplayUrl(
+        item.deliveryProof.displayUrl || item.deliveryProof.fileID,
+      ),
     }),
   });
 }
 
 function resolveOrderListCloudImages(list) {
-  const ids = [];
-  (list || []).forEach((item) => {
-    const fid = item && item.deliveryProof && item.deliveryProof.fileID;
-    if (fid) {
-      ids.push(fid);
-    }
-  });
+  return Promise.resolve(
+    (list || []).map((item) => {
+      const next = withProofDisplayUrl(item);
+      if (!next || !Array.isArray(next.attachments)) {
+        return next;
+      }
 
-  return getTempUrlMap(ids).then((urlMap) =>
-    (list || []).map((item) => withProofDisplayUrl(item, urlMap)),
+      return Object.assign({}, next, {
+        attachments: next.attachments.map((attachment) =>
+          Object.assign({}, attachment, {
+            displayUrl: toDisplayUrl(
+              attachment.displayUrl || attachment.filePath || "",
+            ),
+            filePath: toDisplayUrl(attachment.filePath || ""),
+          }),
+        ),
+      });
+    }),
   );
 }
 
@@ -67,43 +57,25 @@ function resolveTaskCloudImages(task) {
     return Promise.resolve(task);
   }
 
-  const ids = [];
-  if (task.deliveryProof && task.deliveryProof.fileID) {
-    ids.push(task.deliveryProof.fileID);
-  }
-  (task.attachments || []).forEach((a) => {
-    if (a && a.filePath) {
-      ids.push(a.filePath);
-    }
-  });
-
-  return getTempUrlMap(ids).then((urlMap) => {
-    let next = Object.assign({}, task);
-
-    if (task.deliveryProof && task.deliveryProof.fileID) {
-      const u = urlMap[task.deliveryProof.fileID];
-      if (u) {
-        next.deliveryProof = Object.assign({}, task.deliveryProof, {
-          displayUrl: u,
-        });
-      }
-    }
-
-    if (Array.isArray(task.attachments)) {
-      next.attachments = task.attachments.map((a) => {
-        const fp = a && a.filePath;
-        const u = fp && urlMap[fp];
-        return u ? Object.assign({}, a, { displayUrl: u }) : a;
-      });
-    }
-
-    return next;
-  });
+  const next = withProofDisplayUrl(task);
+  return Promise.resolve(
+    Object.assign({}, next, {
+      attachments: Array.isArray(next.attachments)
+        ? next.attachments.map((attachment) =>
+            Object.assign({}, attachment, {
+              displayUrl: toDisplayUrl(
+                attachment.displayUrl || attachment.filePath || "",
+              ),
+              filePath: toDisplayUrl(attachment.filePath || ""),
+            }),
+          )
+        : [],
+    }),
+  );
 }
 
 module.exports = {
   isCloudFileId,
-  getTempUrlMap,
   resolveOrderListCloudImages,
   resolveTaskCloudImages,
 };

@@ -98,6 +98,21 @@
   color: #f2734c;
 }
 
+.pay-chip.refunding {
+  background: #fff8e7;
+  color: #c78b15;
+}
+
+.pay-chip.refunded {
+  background: #eef7ff;
+  color: #2b6de5;
+}
+
+.pay-chip.refund-failed {
+  background: #fff1f1;
+  color: #de4c4c;
+}
+
 .order-role {
   padding: 10rpx 16rpx;
   border-radius: 999rpx;
@@ -133,6 +148,19 @@
   padding: 18rpx;
   border-radius: 18rpx;
   background: #f8fbff;
+}
+
+.refund-box {
+  margin-top: 18rpx;
+  padding: 14rpx 18rpx;
+  border-radius: 16rpx;
+  background: #fff8e7;
+}
+
+.refund-text {
+  color: #c78b15;
+  font-size: 24rpx;
+  font-weight: 600;
 }
 
 .runner-text {

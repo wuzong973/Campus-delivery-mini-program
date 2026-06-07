@@ -8,7 +8,7 @@ cloud.init({
 const db = cloud.database();
 
 function getApiV2Key() {
-  return process.env.WECHAT_PAY_API_V2_KEY || process.env.API_KEY_V2 || "";
+  return process.env.WECHAT_PAY_API_V2_KEY || process.env.API_KEY_V2 || "96c9fb2d7d81b204b368326eefce3dbd";
 }
 
 function parseXml(xml) {

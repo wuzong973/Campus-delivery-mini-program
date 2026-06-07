@@ -1,0 +1,113 @@
+<view class="chat-page">
+  <view class="chat-header" wx:if="{{session}}">
+    <view class="header-main">
+      <image
+        class="avatar-circle avatar-small"
+        wx:if="{{session.targetUser && session.targetUser.avatarUrl}}"
+        src="{{session.targetUser.avatarUrl}}"
+      ></image>
+      <view
+        class="avatar-circle avatar-small theme-{{session.targetUser.avatarTheme || 'ocean'}}"
+        wx:else
+      >
+        {{session.targetUser ? session.targetUser.avatarText : '聊'}}
+      </view>
+      <view class="header-text">
+        <text class="header-name">
+          {{session.targetUser ? session.targetUser.nickname : targetUserName}}
+        </text>
+        <text class="header-desc">
+          {{session.orderTypeText}} · {{session.orderStatusText}} · {{session.rewardText}}
+        </text>
+      </view>
+    </view>
+    <button class="header-order-btn" bindtap="openOrder">查看订单</button>
+  </view>
+
+  <scroll-view
+    class="chat-scroll"
+    scroll-y="true"
+    scroll-with-animation="true"
+    scroll-into-view="{{scrollToView}}"
+  >
+    <view class="chat-list" wx:if="{{messages.length}}">
+      <view
+        class="chat-item"
+        wx:for="{{messages}}"
+        wx:key="id"
+        id="msg-{{item.id}}"
+      >
+        <view class="message-time" wx:if="{{item.showTime}}">{{item.timeText}}</view>
+
+        <view class="message-row {{item.isMe ? 'is-me' : ''}}">
+          <image
+            class="avatar-circle avatar-small"
+            wx:if="{{item.isMe && session && session.currentUser && session.currentUser.avatarUrl}}"
+            src="{{session.currentUser.avatarUrl}}"
+          ></image>
+          <image
+            class="avatar-circle avatar-small"
+            wx:elif="{{!item.isMe && session && session.targetUser && session.targetUser.avatarUrl}}"
+            src="{{session.targetUser.avatarUrl}}"
+          ></image>
+          <view
+            class="avatar-circle avatar-small theme-{{item.isMe ? ((session && session.currentUser && session.currentUser.avatarTheme) || 'ocean') : ((session && session.targetUser && session.targetUser.avatarTheme) || 'ocean')}}"
+            wx:else
+          >
+            {{item.isMe ? ((session && session.currentUser && session.currentUser.avatarText) || '我') : ((session && session.targetUser && session.targetUser.avatarText) || '聊')}}
+          </view>
+
+          <view class="bubble {{item.isMe ? 'bubble-me' : 'bubble-other'}}">
+            <text class="emoji-text" wx:if="{{item.type === 'emoji'}}">{{item.content}}</text>
+            <image
+              class="message-image"
+              wx:elif="{{item.type === 'image'}}"
+              src="{{item.imageUrl}}"
+              mode="widthFix"
+              data-src="{{item.imageUrl}}"
+              bindtap="previewImage"
+            ></image>
+            <text class="message-text" wx:else>{{item.content}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-chat" wx:else>
+      <text class="list-empty-title">还没有聊天记录</text>
+      <text>先发一句问候，聊天内容会自动同步到聊天列表。</text>
+    </view>
+  </scroll-view>
+
+  <view class="input-panel">
+    <view class="tool-row">
+      <view class="tool-btn" bindtap="toggleEmojiPanel">表情</view>
+      <view class="tool-btn" bindtap="chooseImage">图片</view>
+    </view>
+    <view class="input-row">
+      <input
+        class="chat-input"
+        value="{{inputValue}}"
+        bindinput="onInput"
+        placeholder="发消息"
+        confirm-type="send"
+        bindconfirm="sendText"
+      />
+      <button class="send-btn" bindtap="sendText" disabled="{{sending}}">
+        发送
+      </button>
+    </view>
+  </view>
+
+  <view class="emoji-panel" wx:if="{{showEmojiPanel}}">
+    <view
+      class="emoji-item"
+      wx:for="{{emojiList}}"
+      wx:key="*this"
+      data-emoji="{{item}}"
+      bindtap="sendEmoji"
+    >
+      {{item}}
+    </view>
+  </view>
+</view>

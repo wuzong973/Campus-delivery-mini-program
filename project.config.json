@@ -3,7 +3,7 @@
   "compileType": "miniprogram",
   "libVersion": "3.15.0",
   "miniprogramRoot": "./",
-  "cloudfunctionRoot": "cloudfunctions/",
+  "cloudfunctionRoot": "",
   "projectname": "campus-runner-miniapp",
   "setting": {
     "urlCheck": true,

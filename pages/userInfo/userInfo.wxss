@@ -1,3 +1,21 @@
+.avatar-wrapper {
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.avatar-wrapper::after {
+  border: none;
+}
+
+.avatar-image {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+}
+
 .profile-preview {
   display: flex;
   flex-direction: column;
