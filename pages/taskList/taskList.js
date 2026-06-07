@@ -124,7 +124,9 @@ Page({
         icon: 'none'
       });
     }).finally(() => {
-      wx.hideLoading();
+      if (showLoading) {
+        wx.hideLoading();
+      }
       wx.stopPullDownRefresh();
     });
   },

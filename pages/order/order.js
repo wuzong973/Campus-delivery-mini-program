@@ -1,5 +1,92 @@
 const api = require("../../utils/api");
 const { resolveOrderListCloudImages } = require("../../utils/cloudImages");
+const util = require("../../utils/util");
+
+const MAX_DISTANCE_KM = 5;
+
+const ROLE_LABELS = {
+  published: "我发布的",
+  accepted: "我接的单",
+};
+
+const STATUS_LABELS = {
+  pending: "待接单",
+  accepted: "待完成",
+  delivered: "待完成",
+  completed: "已完成",
+  cancelled: "已取消",
+};
+
+const REFUND_STATUS_LABELS = {
+  processing: "退款处理中",
+  success: "已退款",
+  failed: "退款失败",
+  refund_review: "退款审核中",
+  refund_pending: "退款待处理",
+};
+
+function getRefundStatusText(refundStatus) {
+  return REFUND_STATUS_LABELS[refundStatus] || "";
+}
+
+function getPayStatusText(item) {
+  if (item.refundStatus === "success") return "已退款";
+  if (item.refundStatus === "processing") return "退款处理中";
+  if (item.refundStatus === "failed") return "退款失败";
+  if (item.payStatus === "paid") return "已支付";
+  return "待支付";
+}
+
+function getPayStatusClass(item) {
+  if (item.refundStatus === "success") return "refunded";
+  if (item.refundStatus === "processing") return "refunding";
+  if (item.refundStatus === "failed") return "refund-failed";
+  return item.payStatus === "paid" ? "paid" : "unpaid";
+}
+
+function normalizeStatusText(item) {
+  return STATUS_LABELS[item.status] || item.statusText || "未知状态";
+}
+
+function mapOrderForView(item) {
+  const refundStatusText = getRefundStatusText(item.refundStatus);
+  const canPay = !!item.canPay && !item.refundStatus;
+  const chatTarget =
+    item.isMine && item.runner
+      ? item.runner
+      : !item.isMine && item.publisher
+        ? item.publisher
+        : null;
+
+  let distanceText = "";
+  if (item.distance && item.isRunner) {
+    distanceText =
+      item.distance > 0 ? `距离您 ${item.distance} 公里` : "距离您过近";
+  }
+
+  return Object.assign({}, item, {
+    roleText: ROLE_LABELS[item.isMine ? "published" : "accepted"],
+    statusText: normalizeStatusText(item),
+    payStatusText: getPayStatusText(item),
+    payStatusClass: getPayStatusClass(item),
+    refundStatusText,
+    showRefundStatus: !!refundStatusText,
+    canPay,
+    canChat: !!(chatTarget && chatTarget.id),
+    chatTargetId: chatTarget ? chatTarget.id : "",
+    chatTargetName: chatTarget ? chatTarget.nickname : "",
+    hasAction: canPay || !!item.canCancel || !!item.canComplete || !!chatTarget,
+    rewardSummaryText: `${item.rewardText} · 抽成 ${item.platformFeeText}`,
+    runnerText:
+      item.runner && item.runner.nickname
+        ? `接单者：${item.runner.nickname} · ${
+            item.runnerPhoneText || "接单后可见"
+          }`
+        : "暂时还没有人接单",
+    distanceText,
+    isOutOfRange: item.distance > MAX_DISTANCE_KM,
+  });
+}
 
 Page({
   data: {
@@ -8,6 +95,7 @@ Page({
     activeRole: "published",
     activeStatus: "pending",
     payingOrderId: "",
+    userLocation: null, // 用户位置
     roleTabs: [
       { label: "我发布的", value: "published" },
       { label: "我接的单", value: "accepted" },
@@ -43,7 +131,7 @@ Page({
   },
 
   onLoad() {
-    this.loadOrders(true);
+    this.getUserLocation();
   },
 
   onShow() {
@@ -91,15 +179,17 @@ Page({
       this.data.rawList,
       this.data.activeRole,
       this.data.activeStatus,
-    );
+    ).map(mapOrderForView);
+
+    const activeCounts = this.data.counts[this.data.activeRole];
     const statusTabs = this.data.statusTabs.map((item) => ({
       label: item.label,
       value: item.value,
-      count: this.data.counts[this.data.activeRole][item.value] || 0,
+      count: activeCounts[item.value] || 0,
     }));
 
     this.setData({
-      activeCounts: this.data.counts[this.data.activeRole],
+      activeCounts,
       statusTabs,
       list,
     });
@@ -132,6 +222,10 @@ Page({
         this.applyView();
       })
       .catch((error) => {
+        this.setData({
+          initialized: true,
+          loading: false,
+        });
         wx.showToast({
           title: error.message || "加载失败",
           icon: "none",
@@ -171,7 +265,7 @@ Page({
 
     wx.showModal({
       title: "取消订单",
-      content: "确认取消这个订单吗？仅发布者可取消未接单订单。",
+      content: "确认取消这个订单吗？已支付订单会发起原路退款。",
       success: (result) => {
         if (!result.confirm) {
           return;
@@ -189,7 +283,7 @@ Page({
           })
           .catch((error) => {
             wx.showToast({
-              title: error.message || "操作失败",
+              title: error.message || "取消失败",
               icon: "none",
             });
           })
@@ -205,7 +299,7 @@ Page({
 
     wx.showModal({
       title: "完成订单",
-      content: "确认订单已拍照送达并完成结算吗？",
+      content: "确认订单已经送达并完成结算吗？",
       success: (result) => {
         if (!result.confirm) {
           return;
@@ -246,24 +340,41 @@ Page({
     api
       .requestEscrowPayment(id)
       .then((result) => {
-        wx.hideLoading();
         const paid = result && result.payStatus === "paid";
         wx.showToast({
           title: paid ? "支付成功" : "支付结果确认中",
-          icon: paid ? "success" : "none",
+          icon: "none",
         });
         this.loadOrders(false);
       })
       .catch((error) => {
-        wx.hideLoading();
         wx.showToast({
           title: error.message || "支付失败，请稍后重试",
           icon: "none",
         });
       })
       .finally(() => {
+        wx.hideLoading();
         this.setData({ payingOrderId: "" });
       });
+  },
+
+  openChat(event) {
+    const orderId = event.currentTarget.dataset.id;
+    const targetUserId = event.currentTarget.dataset.targetUserId;
+    const targetUserName = event.currentTarget.dataset.targetUserName || "";
+
+    if (!orderId || !targetUserId) {
+      wx.showToast({
+        title: "当前暂无可联系对象",
+        icon: "none",
+      });
+      return;
+    }
+
+    wx.navigateTo({
+      url: `/pages/chat/detail/detail?orderId=${orderId}&targetUserId=${targetUserId}&targetUserName=${encodeURIComponent(targetUserName)}`,
+    });
   },
 
   goPublish() {

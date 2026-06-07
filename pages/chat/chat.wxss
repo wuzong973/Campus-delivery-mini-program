@@ -1,0 +1,86 @@
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.session-card {
+  padding: 22rpx;
+}
+
+.session-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 18rpx;
+}
+
+.session-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-top,
+.session-middle {
+  gap: 18rpx;
+}
+
+.session-name {
+  max-width: 360rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #243250;
+}
+
+.session-time {
+  font-size: 22rpx;
+  color: #9aa7be;
+  flex-shrink: 0;
+}
+
+.session-preview {
+  flex: 1;
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  color: #71809b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-meta {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 18rpx;
+  flex-wrap: wrap;
+}
+
+.meta-text,
+.session-address {
+  font-size: 22rpx;
+  color: #97a4bc;
+}
+
+.session-address {
+  display: block;
+  margin-top: 12rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unread-badge {
+  min-width: 40rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  background: #ff4d4f;
+  color: #ffffff;
+  text-align: center;
+  font-size: 22rpx;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.empty-action {
+  margin-top: 28rpx;
+}

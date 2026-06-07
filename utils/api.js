@@ -1,9 +1,119 @@
 const auth = require("./auth");
 const config = require("./config");
-const { getServiceObject } = require("./cloudService");
+const request = require("./request");
 
 const DELIVERY_UPLOAD_TIMEOUT = 30000;
 const MAX_ATTACHMENT_COUNT = 3;
+const NOTIFICATION_POLL_INTERVAL = 45000;
+
+function sleep(timeout) {
+  return new Promise((resolve) => setTimeout(resolve, timeout));
+}
+
+function createError(message, code, extra) {
+  const error = new Error(message);
+  error.code = code || "API_ERROR";
+  if (extra) {
+    Object.assign(error, extra);
+  }
+  return error;
+}
+
+function normalizePaymentArgs(paymentResult) {
+  const payArgs = paymentResult && paymentResult.payArgs;
+  if (!payArgs) {
+    throw createError(
+      "支付参数缺失，请联系管理员检查微信支付配置。",
+      "PAY_CONFIG_MISSING",
+    );
+  }
+
+  const normalized = {
+    timeStamp: String(payArgs.timeStamp || payArgs.timestamp || ""),
+    nonceStr: payArgs.nonceStr || "",
+    package: payArgs.package || "",
+    signType: payArgs.signType || "RSA",
+    paySign: payArgs.paySign || "",
+  };
+
+  if (
+    !normalized.timeStamp ||
+    !normalized.nonceStr ||
+    !normalized.package ||
+    !normalized.paySign
+  ) {
+    throw createError(
+      "支付参数不完整，请联系管理员检查微信支付配置。",
+      "PAY_CONFIG_MISSING",
+    );
+  }
+
+  return normalized;
+}
+
+function normalizePaymentError(error) {
+  const message = String((error && (error.message || error.errMsg)) || "");
+
+  if (error && error.code === "PAY_CANCEL") {
+    return error;
+  }
+
+  if (/requestPayment:fail cancel|cancel/i.test(message)) {
+    return createError("已取消支付，可在订单页继续支付。", "PAY_CANCEL");
+  }
+
+  if (/AUTH_EXPIRED|登录状态已失效/i.test(message)) {
+    return createError("登录状态已失效，请稍后重新登录。", "AUTH_EXPIRED");
+  }
+
+  if (/配置|mchid|appid|api.?key|private.?key|支付参数/i.test(message)) {
+    return createError("支付配置未完成，请联系管理员。", "PAY_CONFIG_MISSING");
+  }
+
+  if (/status code 400|下单失败|预支付|微信支付/i.test(message)) {
+    return createError("微信支付下单失败，请稍后重试。", "PAY_REQUEST_FAIL");
+  }
+
+  if (/PAY_PENDING|确认中|确认支付/i.test(message)) {
+    return createError("支付结果确认中，请稍后在订单页查看。", "PAY_PENDING");
+  }
+
+  return createError(
+    message || "支付请求失败，请稍后重试。",
+    "PAY_REQUEST_FAIL",
+  );
+}
+
+function pollPaymentStatus(orderId) {
+  const attempts = Number(config.paymentPollingAttempts || 8);
+  const interval = Number(config.paymentPollingInterval || 1500);
+  let count = 0;
+
+  function next() {
+    count += 1;
+    return request
+      .request({
+        url: `/orders/${orderId}/payment-status`,
+        method: "GET",
+      })
+      .then((result) => {
+        if (result && result.payStatus === "paid") {
+          return result;
+        }
+
+        if (count >= attempts) {
+          throw createError(
+            "支付结果确认中，请稍后在订单页查看。",
+            "PAY_PENDING",
+          );
+        }
+
+        return sleep(interval).then(next);
+      });
+  }
+
+  return next();
+}
 
 function uploadTaskAttachments(attachments) {
   const files = Array.isArray(attachments)
@@ -16,143 +126,64 @@ function uploadTaskAttachments(attachments) {
 
   return auth.ensureLogin().then(() =>
     Promise.all(
-      files.slice(0, MAX_ATTACHMENT_COUNT).map((item) => {
-        const ext =
-          (item.filePath.split(".").pop() || "jpg").replace(
-            /[^a-zA-Z0-9]/g,
-            "",
-          ) || "jpg";
-        const cloudPath = `order-attachments/${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}.${ext}`;
-
-        return wx.cloud
-          .uploadFile({
-            cloudPath,
+      files.slice(0, MAX_ATTACHMENT_COUNT).map((item) =>
+        request
+          .upload({
+            url: "/files/order-attachments",
             filePath: item.filePath,
+            name: "file",
           })
-          .then((result) =>
-            Object.assign({}, item, {
-              filePath: result.fileID,
-            }),
-          );
-      }),
+          .then((result) => ({
+            name: item.name || "",
+            type: item.type || "order_attachment",
+            filePath: result.url,
+            path: result.path,
+            filename: result.filename,
+            size: result.size,
+          })),
+      ),
     ),
   );
 }
 
-function withService(runner) {
-  return auth.ensureLogin().then(() => runner(getServiceObject()));
-}
-
-function sleep(timeout) {
-  return new Promise((resolve) => setTimeout(resolve, timeout));
-}
-
-function createError(message, code, extra) {
-  const error = new Error(message);
-  if (code) {
-    error.code = code;
-  }
-  if (extra) {
-    Object.assign(error, extra);
-  }
-  return error;
-}
-
-function normalizePaymentArgs(paymentResult) {
-  const payArgs = paymentResult && paymentResult.payArgs;
-
-  if (!payArgs) {
-    throw createError("支付参数缺失，请联系管理员", "PAY_CONFIG_MISSING");
-  }
-
-  const normalized = {
-    timeStamp: String(payArgs.timeStamp || payArgs.timestamp || ""),
-    nonceStr: payArgs.nonceStr || "",
-    package: payArgs.package || "",
-    signType: payArgs.signType || "MD5",
-    paySign: payArgs.paySign || "",
-  };
-
-  if (
-    !normalized.timeStamp ||
-    !normalized.nonceStr ||
-    !normalized.package ||
-    !normalized.paySign
-  ) {
-    throw createError("支付参数不完整，请联系管理员", "PAY_CONFIG_MISSING", {
-      payArgs,
-    });
-  }
-
-  return normalized;
-}
-
-function normalizePaymentError(error) {
-  const message = error && (error.message || error.errMsg) ? error.message || error.errMsg : "";
-
-  if (/requestPayment:fail cancel|cancel/i.test(message)) {
-    return createError("已取消支付，可在订单页继续支付", "PAY_CANCEL");
-  }
-
-  if (/支付配置|pay config|mchid|appid|api.?key/i.test(message)) {
-    return createError("支付配置未完成，请联系管理员", "PAY_CONFIG_MISSING");
-  }
-
-  if (/确认中|支付状态确认中/.test(message)) {
-    return createError("支付结果确认中，请稍后在订单页查看", "PAY_PENDING");
-  }
-
-  if (/unifiedOrder|统一下单|微信支付/.test(message)) {
-    return createError("微信支付暂不可用，请稍后重试", "PAY_REQUEST_FAIL");
-  }
-
-  return createError(message || "支付请求失败，请稍后重试", "PAY_REQUEST_FAIL");
-}
-
-function pollPaymentStatus(orderId) {
-  const service = getServiceObject();
-  const attempts = Number(config.paymentPollingAttempts || 8);
-  const interval = Number(config.paymentPollingInterval || 1500);
-  let count = 0;
-
-  function next() {
-    count += 1;
-    return service.getPaymentStatus({ orderId }).then((result) => {
-      if (result && result.payStatus === "paid") {
-        return result;
-      }
-
-      if (count >= attempts) {
-        throw createError("支付结果确认中，请稍后在订单页查看", "PAY_PENDING");
-      }
-
-      return sleep(interval).then(next);
-    });
-  }
-
-  return next();
-}
-
 function getHomeData() {
-  return withService((service) => service.getHomeData());
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: "/home",
+      method: "GET",
+    }),
+  );
 }
 
 function getCurrentUserProfile() {
-  return withService((service) => service.getProfile()).then((profile) => {
-    auth.updateCachedUser(profile);
-    return profile;
-  });
+  return auth
+    .ensureLogin()
+    .then(() =>
+      request.request({
+        url: "/users/me",
+        method: "GET",
+      }),
+    )
+    .then((profile) => {
+      auth.updateCachedUser(profile);
+      return profile;
+    });
 }
 
 function updateUserProfile(payload) {
-  return withService((service) => service.updateProfile(payload)).then(
-    (profile) => {
+  return auth
+    .ensureLogin()
+    .then(() =>
+      request.request({
+        url: "/users/me",
+        method: "PATCH",
+        data: payload || {},
+      }),
+    )
+    .then((profile) => {
       auth.updateCachedUser(profile);
       return profile;
-    },
-  );
+    });
 }
 
 function refreshLogin(userInfo) {
@@ -161,26 +192,32 @@ function refreshLogin(userInfo) {
 
 function createTask(payload) {
   return uploadTaskAttachments(payload && payload.attachments).then(
-    (attachments) => {
-      const nextPayload = Object.assign({}, payload, {
-        attachments,
-      });
-      return withService((service) => service.publishOrder(nextPayload));
-    },
+    (attachments) =>
+      request.request({
+        url: "/orders",
+        method: "POST",
+        data: Object.assign({}, payload, {
+          attachments,
+        }),
+      }),
   );
 }
 
 function requestEscrowPayment(orderId) {
-  return withService((service) =>
-    service.createEscrowPayment({ orderId }),
-  )
+  return auth
+    .ensureLogin()
+    .then(() =>
+      request.request({
+        url: `/orders/${orderId}/pay`,
+        method: "POST",
+      }),
+    )
     .then((paymentResult) => {
       if (paymentResult && paymentResult.payStatus === "paid") {
         return paymentResult;
       }
 
       const payArgs = normalizePaymentArgs(paymentResult);
-
       return new Promise((resolve, reject) => {
         wx.requestPayment({
           ...payArgs,
@@ -196,19 +233,12 @@ function requestEscrowPayment(orderId) {
     .then((paymentResult) =>
       paymentResult && paymentResult.payStatus === "paid"
         ? paymentResult
-        :
-      getServiceObject()
-        .confirmClientPaid({
-          orderId,
-          outTradeNo: paymentResult.outTradeNo,
-        })
-        .catch(() => null)
-        .then(() => pollPaymentStatus(orderId))
-        .then((statusResult) =>
-          Object.assign({}, paymentResult, {
-            payStatus: statusResult.payStatus || "paid",
-          }),
-        ),
+        : pollPaymentStatus(orderId).then((statusResult) =>
+            Object.assign({}, paymentResult, {
+              payStatus: statusResult.payStatus || "paid",
+              refundStatus: statusResult.refundStatus || "",
+            }),
+          ),
     )
     .catch((error) => {
       throw normalizePaymentError(error);
@@ -216,162 +246,217 @@ function requestEscrowPayment(orderId) {
 }
 
 function getTaskList(options) {
-  return withService((service) =>
-    service.getTaskList({
-      currentLocation:
-        options && options.currentLocation ? options.currentLocation : null,
+  const currentLocation =
+    options && options.currentLocation ? options.currentLocation : null;
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: "/tasks",
+      method: "GET",
+      data: currentLocation
+        ? {
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+          }
+        : {},
     }),
   );
 }
 
 function getTaskDetail(orderId) {
-  return withService((service) => service.getTaskDetail({ orderId }));
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: `/orders/${orderId}`,
+      method: "GET",
+    }),
+  );
 }
 
 function acceptTask(orderId, currentLocation) {
-  return withService((service) =>
-    service.acceptTask({
-      orderId,
-      currentLocation: currentLocation || null,
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: `/orders/${orderId}/accept`,
+      method: "POST",
+      data: {
+        currentLocation: currentLocation || null,
+      },
     }),
   );
 }
 
 function toggleCollectTask(orderId) {
-  return withService((service) => service.toggleFavorite({ orderId }));
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: `/orders/${orderId}/favorite`,
+      method: "POST",
+    }),
+  );
 }
 
 function uploadDeliveryProof(orderId, filePath, note) {
   if (!filePath) {
     return Promise.reject(
-      createError("请选择需要上传的送达照片", "UPLOAD_FILE_MISSING"),
+      createError("请选择需要上传的送达照片。", "UPLOAD_FILE_MISSING"),
     );
   }
 
-  const uploadPromise = auth.ensureLogin().then(() => {
-    const ext =
-      (filePath.split(".").pop() || "jpg").replace(/[^a-zA-Z0-9]/g, "") ||
-      "jpg";
-    const cloudPath = `delivery-proof/${orderId}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}.${ext}`;
-
-    return wx.cloud
-      .uploadFile({
-        cloudPath,
-        filePath,
-      })
-      .then((uploadResult) => {
-        if (!uploadResult || !uploadResult.fileID) {
-          throw createError("上传成功但未拿到文件编号，请重试", "UPLOAD_FILE_ID");
-        }
-
-        return getServiceObject().uploadDeliveryProof({
-          orderId,
-          fileID: uploadResult.fileID,
-          note: note || "",
-        });
-      });
-  });
+  const uploadPromise = auth.ensureLogin().then(() =>
+    request.upload({
+      url: "/files/delivery-proof",
+      filePath,
+      name: "file",
+      formData: {
+        orderId,
+        note: note || "",
+      },
+    }),
+  );
 
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => {
-      reject(createError("上传超时，请检查网络后重试", "UPLOAD_TIMEOUT"));
+      reject(createError("上传超时，请检查网络后重试。", "UPLOAD_TIMEOUT"));
     }, DELIVERY_UPLOAD_TIMEOUT);
   });
 
-  return Promise.race([uploadPromise, timeoutPromise]).catch((error) => {
-    const message = error && (error.message || error.errMsg);
-    if (/timeout|超时/i.test(message || "")) {
-      throw createError("上传超时，请检查网络后重试", "UPLOAD_TIMEOUT");
-    }
-    if (/fileID/i.test(message || "")) {
-      throw createError("图片上传失败，请重新选择照片", "UPLOAD_FILE_ID");
-    }
-    throw createError(message || "上传失败，请稍后重试", "UPLOAD_FAIL");
-  });
+  return Promise.race([uploadPromise, timeoutPromise]);
 }
 
 function completeOrder(orderId) {
-  return withService((service) => service.completeOrder({ orderId }));
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: `/orders/${orderId}/complete`,
+      method: "POST",
+    }),
+  );
 }
 
 function cancelOrder(orderId) {
-  return withService((service) => service.cancelOrder({ orderId }));
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: `/orders/${orderId}/cancel`,
+      method: "POST",
+    }),
+  );
 }
 
 function rateRunner(orderId, payload) {
-  return withService((service) =>
-    service.rateRunner({
-      orderId,
-      ratingPayload: payload,
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: `/orders/${orderId}/rate`,
+      method: "POST",
+      data: payload || {},
     }),
   );
 }
 
 function getMineData() {
-  return withService((service) => service.getMineData()).then((data) => {
-    if (data.profile) {
-      auth.updateCachedUser(data.profile);
-    }
-    return data;
-  });
+  return auth
+    .ensureLogin()
+    .then(() =>
+      request.request({
+        url: "/mine",
+        method: "GET",
+      }),
+    )
+    .then((data) => {
+      if (data.profile) {
+        auth.updateCachedUser(data.profile);
+      }
+      return data;
+    });
 }
 
 function getOrderList(status) {
-  return withService((service) =>
-    service.getOrderList({
-      status,
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: "/orders",
+      method: "GET",
+      data: {
+        status: status || "all",
+      },
     }),
   );
 }
 
 function getWalletData() {
-  return withService((service) => service.getWalletData());
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: "/wallet",
+      method: "GET",
+    }),
+  );
 }
 
 function createWithdrawal(amount) {
-  return withService((service) =>
-    service.createWithdrawal({
-      amount,
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: "/wallet/withdrawals",
+      method: "POST",
+      data: { amount },
     }),
   );
 }
 
 function getAdminDashboard() {
-  return withService((service) => service.getDashboard());
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: "/admin/dashboard",
+      method: "GET",
+    }),
+  );
 }
 
 function auditWithdrawal(withdrawalId, decision) {
-  return withService((service) =>
-    service.auditWithdrawal({
-      withdrawalId,
-      decision,
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: `/admin/withdrawals/${withdrawalId}/audit`,
+      method: "POST",
+      data: { decision },
     }),
   );
 }
 
 function watchMyNotifications(onChange, onError) {
-  return auth.ensureLogin().then((session) => {
-    const db = wx.cloud.database();
-    return db
-      .collection("notifications")
-      .where({
-        userOpenId: session.openid,
-      })
-      .watch({
-        onChange() {
-          if (typeof onChange === "function") {
-            onChange();
-          }
+  return auth
+    .ensureLogin()
+    .then(() => {
+      const timer = setInterval(() => {
+        if (typeof onChange === "function") {
+          onChange();
+        }
+      }, NOTIFICATION_POLL_INTERVAL);
+
+      return {
+        close() {
+          clearInterval(timer);
         },
-        onError(error) {
-          if (typeof onError === "function") {
-            onError(error);
-          }
-        },
-      });
-  });
+      };
+    })
+    .catch((error) => {
+      if (typeof onError === "function") {
+        onError(error);
+      }
+      throw error;
+    });
+}
+
+function uploadAvatar(filePath) {
+  return auth.ensureLogin().then(() =>
+    request.upload({
+      url: "/files/avatar",
+      filePath,
+      name: "file",
+    }),
+  );
+}
+
+function uploadChatImage(filePath) {
+  return auth.ensureLogin().then(() =>
+    request.upload({
+      url: "/files/chat-image",
+      filePath,
+      name: "file",
+    }),
+  );
 }
 
 function getPlatformFeeHint(reward) {
@@ -383,6 +468,44 @@ function getPlatformFeeHint(reward) {
     platformFee: `¥${fee}`,
     runnerIncome: `¥${runnerIncome}`,
   };
+}
+
+function openChatSession(payload) {
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: "/chat/sessions/open",
+      method: "POST",
+      data: payload || {},
+    }),
+  );
+}
+
+function getChatSessions() {
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: "/chat/sessions",
+      method: "GET",
+    }),
+  );
+}
+
+function getChatMessages(sessionId) {
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: `/chat/sessions/${sessionId}/messages`,
+      method: "GET",
+    }),
+  );
+}
+
+function sendChatMessage(sessionId, payload) {
+  return auth.ensureLogin().then(() =>
+    request.request({
+      url: `/chat/sessions/${sessionId}/messages`,
+      method: "POST",
+      data: payload || {},
+    }),
+  );
 }
 
 module.exports = {
@@ -409,4 +532,10 @@ module.exports = {
   auditWithdrawal,
   watchMyNotifications,
   getPlatformFeeHint,
+  uploadAvatar,
+  openChatSession,
+  getChatSessions,
+  getChatMessages,
+  sendChatMessage,
+  uploadChatImage,
 };

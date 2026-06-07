@@ -1,13 +1,17 @@
 module.exports = {
   appId: "YOUR_WECHAT_APP_ID",
-  cloudEnvId: "cloud1-1grbxinfd03d7059",
-  cloudFallbackEnabled: false,
-  preferLocalDemo: false,
+  apiBaseUrl: "https://YOUR_API_HOST/api",
+  uploadBaseUrl: "https://YOUR_API_HOST/uploads",
+  paymentNotifyUrl: "https://YOUR_API_HOST/pay_notify.php",
   platformFeeRate: 0.01,
   runnerTakeLimit: 3,
   platformName: "校园代拿",
   paymentPollingInterval: 1500,
   paymentPollingAttempts: 8,
-  /** 仅作前端展示/开关；商户号、证书、回调等必须在云函数环境变量中配置 */
   paymentEnabled: true,
+  paymentConfig: {
+    mchId: "YOUR_MERCHANT_ID",
+    publicKeyId: "PUB_KEY_ID_01YOUR_MERCHANT_ID2026040900111545002400",
+    serialNo: "YOUR_CERTIFICATE_SERIAL",
+  },
 };

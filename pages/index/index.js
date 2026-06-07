@@ -1,13 +1,13 @@
-const api = require('../../utils/api');
+const api = require("../../utils/api");
 
-Page({
-  data: {
+function createDefaultHomeData() {
+  return {
     initialized: false,
     loading: true,
     currentUser: {
-      nickname: '同学',
-      avatarTheme: 'ocean',
-      avatarText: '我'
+      nickname: "同学",
+      avatarTheme: "ocean",
+      avatarText: "我",
     },
     banners: [],
     notices: [],
@@ -18,9 +18,13 @@ Page({
     summary: {
       pendingTasks: 0,
       completedTasks: 0,
-      runnerCount: 0
-    }
-  },
+      runnerCount: 0,
+    },
+  };
+}
+
+Page({
+  data: createDefaultHomeData(),
 
   onLoad() {
     this.loadPageData(true);
@@ -28,7 +32,7 @@ Page({
 
   onShow() {
     if (this.data.initialized) {
-      this.loadPageData(false);
+      return;
     }
   },
 
@@ -40,60 +44,78 @@ Page({
     const app = getApp();
 
     if (showLoading) {
-      wx.showLoading({ title: '加载中' });
+      wx.showLoading({ title: "加载中", mask: true });
     }
 
-    app.globalData.readyPromise.then(() => {
-      api.getHomeData().then(data => {
+    app.globalData.readyPromise
+      .then(() => api.getHomeData())
+      .then((data) => {
         this.setData({
           initialized: true,
           loading: false,
-          currentUser: Object.assign({
-            nickname: '同学',
-            avatarTheme: 'ocean',
-            avatarText: '我'
-          }, data.currentUser),
-          banners: data.banners,
+          currentUser: Object.assign(
+            {
+              nickname: "同学",
+              avatarTheme: "ocean",
+              avatarText: "我",
+            },
+            data.currentUser || {},
+          ),
+          banners: data.banners || [],
           notices: data.notices || [],
           priceReference: data.priceReference || [],
           hotAreas: data.hotAreas || [],
-          hotRunners: data.hotRunners,
-          guides: data.guides,
-          summary: data.summary
+          hotRunners: data.hotRunners || [],
+          guides: data.guides || [],
+          summary: Object.assign(
+            {
+              pendingTasks: 0,
+              completedTasks: 0,
+              runnerCount: 0,
+            },
+            data.summary || {},
+          ),
         });
-      }).catch(error => {
+      })
+      .catch((error) => {
+        this.setData({
+          initialized: true,
+          loading: false,
+        });
         wx.showToast({
-          title: error.message || '加载失败',
-          icon: 'none'
+          title: error.message || "加载失败",
+          icon: "none",
         });
-      }).finally(() => {
-        wx.hideLoading();
+      })
+      .finally(() => {
+        if (showLoading) {
+          wx.hideLoading();
+        }
         wx.stopPullDownRefresh();
       });
-    });
   },
 
   goPublish() {
     wx.switchTab({
-      url: '/pages/publish/publish'
+      url: "/pages/publish/publish",
     });
   },
 
   goTaskList() {
-    wx.switchTab({
-      url: '/pages/taskList/taskList'
+    wx.navigateTo({
+      url: "/pages/taskList/taskList",
     });
   },
 
   goOrder() {
     wx.switchTab({
-      url: '/pages/order/order'
+      url: "/pages/order/order",
     });
   },
 
   goMine() {
     wx.switchTab({
-      url: '/pages/mine/mine'
+      url: "/pages/mine/mine",
     });
-  }
+  },
 });

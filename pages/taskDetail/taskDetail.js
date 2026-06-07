@@ -96,20 +96,69 @@ Page({
     });
   },
 
+  showContactOptions(event) {
+    const userType = event.currentTarget.dataset.userType;
+    const task = this.data.task;
+    let phone = "";
+    let targetUser = null;
+
+    if (userType === "publisher") {
+      phone = task.contactPhone;
+      targetUser = task.publisher;
+    } else if (userType === "runner") {
+      phone = task.runnerPhoneText === "接单后可见" ? "" : task.runner.phone;
+      targetUser = task.runner;
+    }
+
+    if (!targetUser) {
+      wx.showToast({
+        title: "用户信息错误",
+        icon: "none",
+      });
+      return;
+    }
+
+    if (
+      (userType === "publisher" && task.isMine) ||
+      (userType === "runner" && task.isRunner)
+    ) {
+      wx.showToast({
+        title: "当前对象就是你自己",
+        icon: "none",
+      });
+      return;
+    }
+
+    wx.showActionSheet({
+      itemList: ["在线联系", "电话联系"],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          wx.navigateTo({
+            url: `/pages/chat/detail/detail?orderId=${this.data.id}&targetUserId=${targetUser.id}&targetUserName=${encodeURIComponent(targetUser.nickname || "")}`,
+          });
+        } else if (res.tapIndex === 1) {
+          this.contactPhone(phone);
+        }
+      },
+      fail(res) {
+        console.log(res.errMsg);
+      },
+    });
+  },
+
   handleContactPublisher() {
-    this.contactPhone(this.data.task.contactPhone);
+    this.showContactOptions({
+      currentTarget: { dataset: { userType: "publisher" } },
+    });
   },
 
   handleContactRunner() {
     if (!this.data.task.runner) {
       return;
     }
-
-    this.contactPhone(
-      this.data.task.runnerPhoneText === "接单后可见"
-        ? ""
-        : this.data.task.runner.phone,
-    );
+    this.showContactOptions({
+      currentTarget: { dataset: { userType: "runner" } },
+    });
   },
 
   handleCollect() {
@@ -149,7 +198,9 @@ Page({
         wx.showLoading({ title: "接单中", mask: true });
 
         this.getCurrentLocation()
-          .then((currentLocation) => api.acceptTask(this.data.id, currentLocation))
+          .then((currentLocation) =>
+            api.acceptTask(this.data.id, currentLocation),
+          )
           .then((task) => resolveTaskCloudImages(task))
           .then((task) => {
             wx.hideLoading();
@@ -173,6 +224,47 @@ Page({
     });
   },
 
+  handleCancel() {
+    if (this.data.submitting) {
+      return;
+    }
+
+    wx.showModal({
+      title: "确认取消",
+      content: "确认取消订单吗？取消后，已支付的款项将会原路退回。",
+      success: (result) => {
+        if (!result.confirm) {
+          return;
+        }
+
+        this.setData({ submitting: true });
+        wx.showLoading({ title: "取消中", mask: true });
+
+        api
+          .cancelTask(this.data.id)
+          .then((task) => resolveTaskCloudImages(task))
+          .then((task) => {
+            wx.hideLoading();
+            this.setData({ task });
+            wx.showToast({
+              title: "取消成功",
+              icon: "success",
+            });
+          })
+          .catch((error) => {
+            wx.hideLoading();
+            wx.showToast({
+              title: error.message || "取消失败",
+              icon: "none",
+            });
+          })
+          .finally(() => {
+            this.setData({ submitting: false });
+          });
+      },
+    });
+  },
+
   handlePay() {
     wx.showLoading({ title: "拉起支付中", mask: true });
     api
@@ -180,7 +272,10 @@ Page({
       .then((result) => {
         wx.hideLoading();
         wx.showToast({
-          title: result && result.payStatus === "paid" ? "支付成功" : "支付结果确认中",
+          title:
+            result && result.payStatus === "paid"
+              ? "支付成功"
+              : "支付结果确认中",
           icon: result && result.payStatus === "paid" ? "success" : "none",
         });
         this.loadDetail(false);
@@ -295,15 +390,21 @@ Page({
   },
 
   handleCancel() {
+    if (this.data.submitting) {
+      return;
+    }
+
     wx.showModal({
-      title: "取消订单",
-      content: "确认取消订单吗？只有发布者可取消未接单订单。",
+      title: "确认取消订单",
+      content: "取消后，已支付的款项将可能原路退回，确认继续吗？",
       success: (result) => {
         if (!result.confirm) {
           return;
         }
 
-        wx.showLoading({ title: "处理中", mask: true });
+        this.setData({ submitting: true });
+        wx.showLoading({ title: "取消中", mask: true });
+
         api
           .cancelOrder(this.data.id)
           .then((task) => resolveTaskCloudImages(task))
@@ -318,9 +419,12 @@ Page({
           .catch((error) => {
             wx.hideLoading();
             wx.showToast({
-              title: error.message || "操作失败",
+              title: error.message || "取消失败",
               icon: "none",
             });
+          })
+          .finally(() => {
+            this.setData({ submitting: false });
           });
       },
     });

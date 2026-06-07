@@ -9,7 +9,9 @@
     "pages/auth/auth",
     "pages/userInfo/userInfo",
     "pages/wallet/wallet",
-    "pages/admin/admin"
+    "pages/admin/admin",
+    "pages/chat/chat",
+    "pages/chat/detail/detail"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -34,12 +36,12 @@
         "text": "\u53d1\u5e03"
       },
       {
-        "pagePath": "pages/taskList/taskList",
-        "text": "\u4efb\u52a1"
-      },
-      {
         "pagePath": "pages/order/order",
         "text": "\u8ba2\u5355"
+      },
+      {
+        "pagePath": "pages/chat/chat",
+        "text": "\u804a\u5929"
       },
       {
         "pagePath": "pages/mine/mine",

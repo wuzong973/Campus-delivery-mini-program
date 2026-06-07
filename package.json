@@ -4,7 +4,10 @@
   "description": "Campus Runner Mini Program",
   "main": "app.js",
   "scripts": {
-    "lint": "eslint . --ext .js --fix"
+    "lint": "eslint . --ext .js --fix",
+    "server:start": "npm --prefix server run start",
+    "server:dev": "npm --prefix server run dev",
+    "server:migrate": "npm --prefix server run migrate:cloud-export"
   },
   "keywords": [
     "miniprogram",

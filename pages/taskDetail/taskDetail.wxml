@@ -89,7 +89,8 @@
 
   <view class="card section-block user-card">
     <view class="user-row">
-      <view class="avatar-circle theme-{{task.publisher.avatarTheme}}">{{task.publisher.avatarText}}</view>
+      <image class="avatar-circle" src="{{task.publisher.avatarUrl}}" wx:if="{{task.publisher.avatarUrl}}"></image>
+      <view class="avatar-circle theme-{{task.publisher.avatarTheme}}" wx:else>{{task.publisher.avatarText}}</view>
       <view class="user-main">
         <text class="user-name">发布者：{{task.publisher.nickname}}</text>
         <text class="user-desc">{{task.publisherSloganText}}</text>
@@ -97,7 +98,8 @@
       </view>
     </view>
     <view class="user-row taker-row" wx:if="{{task.runner}}">
-      <view class="avatar-circle theme-{{task.runner.avatarTheme}}">{{task.runner.avatarText}}</view>
+      <image class="avatar-circle" src="{{task.runner.avatarUrl}}" wx:if="{{task.runner.avatarUrl}}"></image>
+      <view class="avatar-circle theme-{{task.runner.avatarTheme}}" wx:else>{{task.runner.avatarText}}</view>
       <view class="user-main">
         <text class="user-name">接单者：{{task.runner.nickname}}</text>
         <text class="user-desc">评分 {{task.runnerScoreText}} · 已完成 {{task.runnerCompletedJobsText}} 单</text>
@@ -138,13 +140,16 @@
 
   <view class="section-block">
     <view class="action-row">
-      <button class="secondary-btn" bindtap="handleContactPublisher">联系发布者</button>
+      <button class="secondary-btn" bindtap="showContactOptions" data-user-type="publisher">联系发布者</button>
       <button class="ghost-btn" bindtap="handleCollect">{{task.isCollected ? '取消收藏' : '收藏任务'}}</button>
     </view>
   </view>
 
   <view class="section-block" wx:if="{{task.runner}}">
-    <button class="ghost-btn" bindtap="handleContactRunner">联系接单者</button>
+    <view class="action-row">
+      <button class="ghost-btn" bindtap="showContactOptions" data-user-type="runner">联系接单者</button>
+      <button class="ghost-btn" bindtap="handleCancel">取消订单</button>
+    </view>
   </view>
 
   <view class="section-block" wx:if="{{task.canPay}}">
