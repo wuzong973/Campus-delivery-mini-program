@@ -25,6 +25,7 @@ function createDefaultHomeData() {
 
 Page({
   data: createDefaultHomeData(),
+<<<<<<< HEAD
 
   // 分享给好友：定义本方法后，右上角胶囊菜单才会显示「转发」并支持「复制链接」
   onShareAppMessage() {
@@ -42,6 +43,8 @@ Page({
       query: ""
     };
   },
+=======
+>>>>>>> d4066644e00ebcdcbffa7abefb48c49afbb14cc6
 
   onLoad() {
     this.loadPageData(true);

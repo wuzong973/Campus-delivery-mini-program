@@ -278,6 +278,54 @@ Page({
         this.setData({ submitting: true });
         wx.showLoading({ title: "取消中", mask: true });
 
+<<<<<<< HEAD
+        api
+          .cancelTask(this.data.id)
+=======
+        this.getCurrentLocation()
+          .then((currentLocation) =>
+            api.acceptTask(this.data.id, currentLocation),
+          )
+>>>>>>> d4066644e00ebcdcbffa7abefb48c49afbb14cc6
+          .then((task) => resolveTaskCloudImages(task))
+          .then((task) => {
+            wx.hideLoading();
+            this.setData({ task });
+            wx.showToast({
+              title: "取消成功",
+              icon: "success",
+            });
+          })
+          .catch((error) => {
+            wx.hideLoading();
+            wx.showToast({
+              title: error.message || "取消失败",
+              icon: "none",
+            });
+          })
+          .finally(() => {
+            this.setData({ submitting: false });
+          });
+      },
+    });
+  },
+
+  handleCancel() {
+    if (this.data.submitting) {
+      return;
+    }
+
+    wx.showModal({
+      title: "确认取消",
+      content: "确认取消订单吗？取消后，已支付的款项将会原路退回。",
+      success: (result) => {
+        if (!result.confirm) {
+          return;
+        }
+
+        this.setData({ submitting: true });
+        wx.showLoading({ title: "取消中", mask: true });
+
         api
           .cancelTask(this.data.id)
           .then((task) => resolveTaskCloudImages(task))
