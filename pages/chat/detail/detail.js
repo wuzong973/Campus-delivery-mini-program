@@ -1,6 +1,8 @@
 const api = require("../../../utils/api");
 
 const POLL_INTERVAL_MS = 4000;
+// 连续失败时的退避上限，避免断网状态下持续高频请求
+const POLL_MAX_INTERVAL_MS = 60000;
 const SHOW_TIME_GAP_MS = 5 * 60 * 1000;
 const EMOJI_LIST = [
   "😀",
@@ -60,6 +62,21 @@ Page({
     this.openSession();
   },
 
+  // 分享给好友：携带会话信息，打开后可直接进入同一会话
+  onShareAppMessage() {
+    const sessionId = this.data.sessionId || "";
+    const targetUserName = this.data.targetUserName || "";
+    return {
+      title: targetUserName
+        ? `校园代拿 - 与 ${targetUserName} 的聊天`
+        : "校园代拿 - 校园跑腿互助平台",
+      path: sessionId
+        ? `/pages/chat/detail/detail?sessionId=${sessionId}`
+        : "/pages/index/index",
+      imageUrl: ""
+    };
+  },
+
   onShow() {
     this.startPolling();
   },
@@ -83,19 +100,50 @@ Page({
   },
 
   startPolling() {
-    this.stopPolling();
-    this.pollTimer = setInterval(() => {
-      if (this.data.sessionId) {
-        this.loadMessages(false);
-      }
-    }, POLL_INTERVAL_MS);
+    this.polling = true;
+    this.pollFailures = 0;
+    this.scheduleNextPoll(POLL_INTERVAL_MS);
   },
 
   stopPolling() {
+    this.polling = false;
     if (this.pollTimer) {
-      clearInterval(this.pollTimer);
+      clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
+  },
+
+  // 自调度 setTimeout + 指数退避：断网时不会持续每 4 秒打一次接口
+  scheduleNextPoll(delay) {
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+    }
+
+    this.pollTimer = setTimeout(() => {
+      this.pollTimer = null;
+
+      if (!this.polling || !this.data.sessionId) {
+        if (this.polling) {
+          this.scheduleNextPoll(POLL_INTERVAL_MS);
+        }
+        return;
+      }
+
+      this.loadMessages(false, true).then((ok) => {
+        if (!this.polling) {
+          return;
+        }
+
+        this.pollFailures = ok ? 0 : (this.pollFailures || 0) + 1;
+
+        const next = Math.min(
+          POLL_INTERVAL_MS * Math.pow(2, Math.min(this.pollFailures, 4)),
+          POLL_MAX_INTERVAL_MS,
+        );
+
+        this.scheduleNextPoll(next);
+      });
+    }, delay);
   },
 
   decorateMessages(messages) {
@@ -152,7 +200,8 @@ Page({
             this.data.targetUserName,
         );
         this.emitChatUpdated();
-        return this.loadMessages(false);
+        // 静默加载：外层 openSession 的 catch 已经负责错误提示，避免重复弹窗
+        return this.loadMessages(false, true);
       })
       .catch((error) => {
         this.setData({
@@ -168,10 +217,16 @@ Page({
       });
   },
 
-  loadMessages(showLoading) {
+  /**
+   * 拉取消息列表。
+   * @param {boolean} showLoading 是否显示全屏 loading
+   * @param {boolean} silent 静默模式：失败不弹 toast（轮询必须用）
+   * @returns {Promise<boolean>} 是否成功，供轮询退避判断
+   */
+  loadMessages(showLoading, silent) {
     if (!this.data.sessionId) {
       wx.stopPullDownRefresh();
-      return Promise.resolve();
+      return Promise.resolve(true);
     }
 
     if (showLoading) {
@@ -201,15 +256,23 @@ Page({
           },
         );
         this.emitChatUpdated();
+        return true;
       })
       .catch((error) => {
         this.setData({
           loading: false,
         });
-        wx.showToast({
-          title: error.message || "加载消息失败",
-          icon: "none",
-        });
+
+        if (!silent) {
+          wx.showToast({
+            title: (error && error.message) || "加载消息失败",
+            icon: "none",
+          });
+        } else {
+          console.warn("load chat messages failed", error);
+        }
+
+        return false;
       })
       .finally(() => {
         if (showLoading) {
@@ -336,6 +399,14 @@ Page({
               imageUrl: uploadResult.url,
             }),
           )
+          .catch((error) => {
+            // 旧实现只有 then + finally，上传失败会产生未捕获的 Promise rejection，
+            // 用户只看到 loading 消失、没有任何提示。
+            wx.showToast({
+              title: (error && error.message) || "图片发送失败，请重试",
+              icon: "none",
+            });
+          })
           .finally(() => {
             wx.hideLoading();
             this.setData({

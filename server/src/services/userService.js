@@ -6,30 +6,31 @@ const {
   getCurrentUser,
   getProfileState,
   User,
+  businessError,
 } = require("./shared");
 
 async function getMe(openid) {
   const user = await getCurrentUser(openid);
   if (!user) {
-    throw new Error("用户不存在，请重新登录");
+    throw businessError("用户不存在，请重新登录");
   }
   return normalizeUser(user, publicBaseUrl);
 }
 
 async function updateMe(openid, payload) {
   if (!payload || !String(payload.nickname || "").trim()) {
-    throw new Error("请输入昵称");
+    throw businessError("请输入昵称");
   }
   if (!isPhone(payload.phone)) {
-    throw new Error("请输入正确的手机号");
+    throw businessError("请输入正确的手机号");
   }
   if (!String(payload.commonAddress || "").trim()) {
-    throw new Error("请输入常用地址");
+    throw businessError("请输入常用地址");
   }
 
   const user = await getCurrentUser(openid);
   if (!user) {
-    throw new Error("用户不存在，请重新登录");
+    throw businessError("用户不存在，请重新登录");
   }
 
   const patch = {
@@ -55,7 +56,7 @@ async function updateMe(openid, payload) {
 async function getMineData(openid) {
   const user = await getCurrentUser(openid);
   if (!user) {
-    throw new Error("用户不存在，请重新登录");
+    throw businessError("用户不存在，请重新登录");
   }
 
   const profile = normalizeUser(user);

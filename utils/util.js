@@ -35,6 +35,38 @@ function getHaversineDistance(lat1, lng1, lat2, lng2) {
   return s;
 }
 
+// onShow 全量刷新的默认最小间隔。
+// 取得比较短（3 秒）是为了只去重「用户快速来回切 tab」这种无意义重复请求，
+// 而不会让用户感知到数据陈旧 —— 例如发布完成跳到订单页时，间隔通常已远超 3 秒。
+const DEFAULT_REFRESH_GAP_MS = 3000;
+
+/**
+ * 生成一个刷新节流器：距上次通过不足 intervalMs 时返回 false。
+ *
+ * 用法：在页面里创建一次，onShow 时调用。
+ *   const shouldRefresh = createRefreshThrottle();
+ *   onShow() { if (this.data.initialized && shouldRefresh()) this.loadData(false); }
+ *
+ * @param {number} [intervalMs] 最小间隔，默认 3000 毫秒
+ * @returns {function(): boolean} 是否应当执行本次刷新
+ */
+function createRefreshThrottle(intervalMs) {
+  const gap =
+    Number(intervalMs) > 0 ? Number(intervalMs) : DEFAULT_REFRESH_GAP_MS;
+  let lastAt = 0;
+
+  return function shouldRefresh() {
+    const current = Date.now();
+    if (lastAt && current - lastAt < gap) {
+      return false;
+    }
+    lastAt = current;
+    return true;
+  };
+}
+
 module.exports = {
   getHaversineDistance,
+  createRefreshThrottle,
+  DEFAULT_REFRESH_GAP_MS,
 };

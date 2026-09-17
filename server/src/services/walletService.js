@@ -6,13 +6,14 @@ const {
   createNotification,
   getCurrentUser,
   User,
+  businessError,
 } = require("./shared");
 const { Withdrawal } = require("../models");
 
 async function getWalletData(openid) {
   const user = await getCurrentUser(openid);
   if (!user) {
-    throw new Error("用户不存在，请重新登录");
+    throw businessError("用户不存在，请重新登录");
   }
 
   const withdrawals = await Withdrawal.find({ userOpenId: openid })
@@ -58,11 +59,11 @@ async function getWalletData(openid) {
 async function createWithdrawal(openid, amount) {
   const money = roundMoney(amount);
   if (!money || money <= 0) {
-    throw new Error("请输入正确的提现金额");
+    throw businessError("请输入正确的提现金额");
   }
   const user = await getCurrentUser(openid);
   if (!user) {
-    throw new Error("用户不存在");
+    throw businessError("用户不存在");
   }
 
   const withdrawals = await Withdrawal.find({ userOpenId: openid, status: "pending" }).lean();
@@ -72,7 +73,7 @@ async function createWithdrawal(openid, amount) {
   );
 
   if (money > availableBalance) {
-    throw new Error("可提现余额不足");
+    throw businessError("可提现余额不足");
   }
 
   const created = await Withdrawal.create({

@@ -30,12 +30,13 @@ const {
   Order,
   Favorite,
   Notification,
+  businessError,
 } = require("./shared");
 
 async function requireCurrentUser(openid) {
   const user = await getCurrentUser(openid);
   if (!user) {
-    throw new Error("用户不存在，请重新登录");
+    throw businessError("用户不存在，请重新登录");
   }
   return user;
 }
@@ -43,7 +44,7 @@ async function requireCurrentUser(openid) {
 function requireCompletedProfile(user) {
   const profileState = getProfileState(user || {});
   if (!profileState.isComplete) {
-    throw new Error(`请先完善个人资料：${profileState.missingText}`);
+    throw businessError(`请先完善个人资料：${profileState.missingText}`);
   }
 }
 
@@ -172,25 +173,25 @@ async function createOrder(openid, payload) {
   requireCompletedProfile(currentUser);
 
   if (!String(payload.receiverName || "").trim()) {
-    throw new Error("请填写收件人姓名");
+    throw businessError("请填写收件人姓名");
   }
   if (!String(payload.contactPhone || "").trim()) {
-    throw new Error("请填写联系方式");
+    throw businessError("请填写联系方式");
   }
   if (!String(payload.pickupAddress || "").trim()) {
-    throw new Error("请填写取件地址");
+    throw businessError("请填写取件地址");
   }
   if (!String(payload.deliveryAddress || "").trim()) {
-    throw new Error("请填写送达地址");
+    throw businessError("请填写送达地址");
   }
   if (!String(payload.remark || "").trim()) {
-    throw new Error("备注信息为必填项");
+    throw businessError("备注信息为必填项");
   }
   if (
     String(payload.pickupAddress || "").trim() ===
     String(payload.deliveryAddress || "").trim()
   ) {
-    throw new Error("取件地址和送达地址不能相同");
+    throw businessError("取件地址和送达地址不能相同");
   }
 
   const pricing = getPricingDetails(payload);
@@ -306,7 +307,7 @@ async function getTaskList(openid, currentLocation) {
 async function getTaskDetail(openid, orderId) {
   let order = await Order.findById(orderId).lean();
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
   if (
     order.publisherOpenId === openid &&
@@ -332,13 +333,13 @@ async function acceptTask(openid, orderId, currentLocation) {
 
   const order = await Order.findById(orderId).lean();
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
   if (order.publisherOpenId === openid) {
-    throw new Error("不能承接自己发布的订单");
+    throw businessError("不能承接自己发布的订单");
   }
   if (order.status !== "pending" || order.payStatus !== "paid") {
-    throw new Error("该订单当前不可接单");
+    throw businessError("该订单当前不可接单");
   }
 
   const distanceKm = calculateDistanceKm(
@@ -346,10 +347,12 @@ async function acceptTask(openid, orderId, currentLocation) {
     order.pickupLocation || order.deliveryLocation,
   );
   if (distanceKm > 5) {
-    throw new Error("只能接 5km 内的订单");
+    throw businessError("只能接 5km 内的订单");
   }
 
-  await Order.updateOne(
+  // 条件更新本身是原子的，但必须校验结果：两个骑手同时点接单时，
+  // 只有一条 update 会命中，未命中的那个不能继续报「接单成功」。
+  const claim = await Order.updateOne(
     { _id: orderId, status: "pending", payStatus: "paid" },
     {
       $set: {
@@ -361,6 +364,10 @@ async function acceptTask(openid, orderId, currentLocation) {
       },
     },
   );
+
+  if (claim.modifiedCount !== 1) {
+    throw businessError("手慢了，该订单已被其他同学接走");
+  }
 
   await createNotification(
     order.publisherOpenId,
@@ -376,16 +383,16 @@ async function acceptTask(openid, orderId, currentLocation) {
 async function uploadDeliveryProof(openid, orderId, proof) {
   const order = await Order.findById(orderId).lean();
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
   if (order.runnerOpenId !== openid) {
-    throw new Error("仅接单者可上传送达照片");
+    throw businessError("仅接单者可上传送达照片");
   }
   if (order.status !== "accepted") {
-    throw new Error("当前订单状态不能上传送达照片");
+    throw businessError("当前订单状态不能上传送达照片");
   }
   if (!proof || !proof.fileID) {
-    throw new Error("请先上传送达照片");
+    throw businessError("请先上传送达照片");
   }
 
   const deliveryProof = {
@@ -395,8 +402,9 @@ async function uploadDeliveryProof(openid, orderId, proof) {
   };
 
   try {
-    await Order.updateOne(
-      { _id: orderId },
+    // 带状态条件的更新：防止并发下重复置为 delivered 或覆盖已变更的状态
+    const claim = await Order.updateOne(
+      { _id: orderId, runnerOpenId: openid, status: "accepted" },
       {
         $set: {
           deliveryProof,
@@ -406,13 +414,17 @@ async function uploadDeliveryProof(openid, orderId, proof) {
         },
       },
     );
+
+    if (claim.modifiedCount !== 1) {
+      throw businessError("订单状态已变更，请刷新后重试");
+    }
   } catch (error) {
     await recordAbnormal(openid, "upload_delivery_proof_fail", error.message, {
       orderId,
       fileID: proof.fileID,
       stage: "db_update",
     });
-    throw new Error(`上传凭证失败: ${error.message}`);
+    throw businessError(`上传凭证失败: ${error.message}`);
   }
 
   await createNotification(
@@ -430,38 +442,44 @@ async function completeOrder(openid, orderId) {
   const runner = await requireCurrentUser(openid);
   const order = await Order.findById(orderId).lean();
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
   if (order.runnerOpenId !== openid) {
-    throw new Error("仅接单者可完成订单");
+    throw businessError("仅接单者可完成订单");
   }
   if (order.status !== "delivered" && order.status !== "completed") {
-    throw new Error("请先上传送达照片");
+    throw businessError("请先上传送达照片");
   }
 
+  // 原子抢占：只有把订单从 delivered 推到 completed 成功的那个请求才算「本次完成」。
+  // 并发的第二个请求 modifiedCount 为 0，不会重复发通知、也不会走到重复结算。
+  const claim = await Order.updateOne(
+    { _id: orderId, runnerOpenId: openid, status: "delivered" },
+    {
+      $set: {
+        status: "completed",
+        completedAt: now(),
+        updatedAt: now(),
+      },
+    },
+  );
+
+  const isFirstCompletion = claim.modifiedCount === 1;
+
+  // 无论是否首次完成都调用结算：settleOrderIfNeeded 内部有独立的原子闸门，
+  // 既能保证幂等，也能补偿「订单已置为 completed 但结算中断」的异常场景。
   const publisherUser = await getCurrentUser(order.publisherOpenId);
   await settleOrderIfNeeded(order, runner, publisherUser);
 
-  if (order.status !== "completed") {
-    await Order.updateOne(
-      { _id: orderId },
-      {
-        $set: {
-          status: "completed",
-          completedAt: now(),
-          updatedAt: now(),
-        },
-      },
+  if (isFirstCompletion) {
+    await createNotification(
+      order.publisherOpenId,
+      "订单已完成",
+      `${runner.nickname || "接单者"} 已完成你的订单，赏金已自动结算。`,
+      "order_complete",
+      orderId,
     );
   }
-
-  await createNotification(
-    order.publisherOpenId,
-    "订单已完成",
-    `${runner.nickname || "接单者"} 已完成你的订单，赏金已自动结算。`,
-    "order_complete",
-    orderId,
-  );
 
   return getTaskDetail(openid, orderId);
 }
@@ -469,48 +487,67 @@ async function completeOrder(openid, orderId) {
 async function cancelOrder(openid, orderId) {
   let order = await Order.findById(orderId).lean();
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
 
   const isPublisher = order.publisherOpenId === openid;
   const isRunner = order.runnerOpenId === openid;
 
   if (!isPublisher && !isRunner) {
-    throw new Error("仅订单相关人员可以取消订单");
+    throw businessError("仅订单相关人员可以取消订单");
   }
 
   if (order.status !== "pending" && order.status !== "accepted") {
-    throw new Error("只能取消未接单或已接单的订单");
+    throw businessError("只能取消未接单或已接单的订单");
   }
 
   await detectCancelFrequency(openid);
 
   const paymentStatus = await syncRemotePaymentStatusByOrder(order);
   const wasPaid = paymentStatus.payStatus === "paid";
+  const previousStatus = order.status;
+
+  // 原子抢占：只有把订单从 pending/accepted 推到 cancelled 成功的请求才继续退款。
+  // 旧实现是「先读状态判断 → 调退款 → 再改状态」，两个并发取消请求都能通过检查，
+  // 会各自发起一次退款，造成重复退款。
+  const claim = await Order.updateOne(
+    { _id: orderId, status: { $in: ["pending", "accepted"] } },
+    {
+      $set: {
+        status: "cancelled",
+        cancelledAt: now(),
+        updatedAt: now(),
+      },
+    },
+  );
+
+  if (claim.modifiedCount !== 1) {
+    throw businessError("订单状态已变更，请刷新后重试");
+  }
 
   if (wasPaid) {
     try {
       await applyRefund(order);
       order = await Order.findById(orderId).lean();
     } catch (error) {
+      // 退款发起失败时把订单状态回滚，避免出现「已取消但没退款」的悬空状态，
+      // 用户可重新发起取消。
+      await Order.updateOne(
+        { _id: orderId, status: "cancelled" },
+        {
+          $set: {
+            status: previousStatus,
+            cancelledAt: 0,
+            updatedAt: now(),
+          },
+        },
+      );
       await recordAbnormal(openid, "cancel_refund_fail", error.message, {
         orderId,
       });
-      throw new Error(`取消失败，退款未发起成功：${error.message}`);
+      throw businessError(`取消失败，退款未发起成功：${error.message}`);
     }
   }
-
-  await Order.updateOne(
-    { _id: orderId },
-    {
-      $set: {
-        status: "cancelled",
-        refundStatus: wasPaid ? "processing" : "",
-        cancelledAt: now(),
-        updatedAt: now(),
-      },
-    },
-  );
 
   if (isPublisher && order.runnerOpenId) {
     await createNotification(
@@ -538,22 +575,22 @@ async function rateRunner(openid, orderId, payload) {
   const comment = String(payload.comment || "").trim();
   const order = await Order.findById(orderId).lean();
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
   if (order.publisherOpenId !== openid) {
-    throw new Error("仅发布者可以评价跑腿员");
+    throw businessError("仅发布者可以评价跑腿员");
   }
   if (order.status !== "completed") {
-    throw new Error("订单完成后才能评价");
+    throw businessError("订单完成后才能评价");
   }
   if (!order.runnerOpenId) {
-    throw new Error("当前订单没有接单者，无法评价");
+    throw businessError("当前订单没有接单者，无法评价");
   }
   if (order.rating) {
-    throw new Error("该订单已评价");
+    throw businessError("该订单已评价");
   }
   if (score < 1 || score > 5) {
-    throw new Error("评分需在 1 到 5 分之间");
+    throw businessError("评分需在 1 到 5 分之间");
   }
 
   const rating = {
@@ -562,8 +599,9 @@ async function rateRunner(openid, orderId, payload) {
     createdAt: now(),
   };
 
-  await Order.updateOne(
-    { _id: orderId },
+  // 条件更新：rating 为空才写入，避免并发下重复评价、重复发通知
+  const claim = await Order.updateOne(
+    { _id: orderId, rating: null },
     {
       $set: {
         rating,
@@ -571,6 +609,10 @@ async function rateRunner(openid, orderId, payload) {
       },
     },
   );
+
+  if (claim.modifiedCount !== 1) {
+    throw businessError("该订单已评价");
+  }
 
   const ratingOrders = await Order.find({
     runnerOpenId: order.runnerOpenId,
@@ -674,85 +716,155 @@ async function getMineData(openid) {
   };
 }
 
-async function getOrderList(openid, status) {
-  let [publishedOrders, acceptedOrders] = await Promise.all([
-    Order.find({ publisherOpenId: openid })
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean(),
-    Order.find({ runnerOpenId: openid })
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean(),
+// 订单列表的「状态归类」：delivered 在业务上等价于待完成，统一并入 accepted 分组
+const ACTIVE_STATUSES = ["accepted", "delivered"];
+
+function buildOrderQuery(openid, role, status) {
+  const query = {};
+
+  if (role === "published") {
+    query.publisherOpenId = openid;
+  } else if (role === "accepted") {
+    query.runnerOpenId = openid;
+  } else {
+    query.$or = [{ publisherOpenId: openid }, { runnerOpenId: openid }];
+  }
+
+  if (status && status !== "all") {
+    query.status = status === "accepted" ? { $in: ACTIVE_STATUSES } : status;
+  }
+
+  return query;
+}
+
+/**
+ * 统计两个角色下各状态的订单数。
+ * 关键点：统计覆盖该用户的**全部**订单，不受分页影响，
+ * 否则用户订单超过一页时，标签上的数字会明显偏小。
+ * 用一次聚合完成，避免 8 次 countDocuments。
+ */
+async function buildOrderCounts(openid) {
+  const rows = await Order.aggregate([
+    {
+      $match: {
+        $or: [{ publisherOpenId: openid }, { runnerOpenId: openid }],
+      },
+    },
+    {
+      $group: {
+        _id: {
+          role: {
+            $cond: [
+              { $eq: ["$publisherOpenId", openid] },
+              "published",
+              "accepted",
+            ],
+          },
+          bucket: {
+            $cond: [
+              { $in: ["$status", ACTIVE_STATUSES] },
+              "accepted",
+              "$status",
+            ],
+          },
+        },
+        count: { $sum: 1 },
+      },
+    },
   ]);
 
-  const needSyncOrders = publishedOrders.filter(
-    (item) =>
-      item.status === "pending" && item.payStatus !== "paid" && item.outTradeNo,
-  );
+  const emptyBucket = () => ({
+    pending: 0,
+    accepted: 0,
+    completed: 0,
+    cancelled: 0,
+  });
+  const counts = { published: emptyBucket(), accepted: emptyBucket() };
 
-  if (needSyncOrders.length) {
-    await Promise.all(
-      needSyncOrders.map((item) => syncRemotePaymentStatusByOrder(item)),
-    );
-    [publishedOrders, acceptedOrders] = await Promise.all([
-      Order.find({ publisherOpenId: openid })
-        .sort({ createdAt: -1 })
-        .limit(100)
-        .lean(),
-      Order.find({ runnerOpenId: openid })
-        .sort({ createdAt: -1 })
-        .limit(100)
-        .lean(),
-    ]);
-  }
+  rows.forEach((row) => {
+    const role = row && row._id ? row._id.role : "";
+    const bucket = row && row._id ? row._id.bucket : "";
+    const target = counts[role];
 
-  const refundSyncOrders = publishedOrders.filter(
-    (item) => item.refundStatus && item.outRefundNo,
-  );
-
-  if (refundSyncOrders.length) {
-    await Promise.all(
-      refundSyncOrders.map((item) => syncRemoteRefundStatusByOrder(item)),
-    );
-    [publishedOrders, acceptedOrders] = await Promise.all([
-      Order.find({ publisherOpenId: openid })
-        .sort({ createdAt: -1 })
-        .limit(100)
-        .lean(),
-      Order.find({ runnerOpenId: openid })
-        .sort({ createdAt: -1 })
-        .limit(100)
-        .lean(),
-    ]);
-  }
-
-  const merged = [...publishedOrders, ...acceptedOrders]
-    .filter(
-      (item, index, list) =>
-        list.findIndex((target) => target._id === item._id) === index,
-    )
-    .sort((a, b) => b.createdAt - a.createdAt);
-
-  const counts = {
-    pending: merged.filter((item) => item.status === "pending").length,
-    accepted: merged.filter((item) =>
-      ["accepted", "delivered"].includes(item.status),
-    ).length,
-    completed: merged.filter((item) => item.status === "completed").length,
-    cancelled: merged.filter((item) => item.status === "cancelled").length,
-  };
-
-  const filtered = merged.filter((item) => {
-    if (!status || status === "all") return true;
-    if (status === "accepted")
-      return ["accepted", "delivered"].includes(item.status);
-    return item.status === status;
+    if (target && Object.prototype.hasOwnProperty.call(target, bucket)) {
+      target[bucket] = Number(row.count || 0);
+    }
   });
 
+  return counts;
+}
+
+/**
+ * 订单列表（支持按角色/状态筛选 + 分页）。
+ *
+ * @param {string} openid
+ * @param {object} [options]
+ * @param {string} [options.role]     "published" | "accepted" | 空（两者都查）
+ * @param {string} [options.status]   "all" | "pending" | "accepted" | "completed" | "cancelled"
+ * @param {number} [options.page]     页码，从 1 开始
+ * @param {number} [options.pageSize] 每页条数，最大 50
+ */
+async function getOrderList(openid, options = {}) {
+  const role = ["published", "accepted"].includes(options.role)
+    ? options.role
+    : "";
+  const status = String(options.status || "all");
+  const pageSize = Math.min(Math.max(Number(options.pageSize) || 20, 1), 50);
+  const page = Math.max(Number(options.page) || 1, 1);
+
+  const query = buildOrderQuery(openid, role, status);
+
+  // 先对「待支付」与「退款中」的订单做一次远程状态同步，
+  // 避免用户看到过期的支付/退款状态。只取最近若干条，不做全量同步。
+  const staleRows = await Order.find({
+    $and: [
+      query,
+      {
+        $or: [
+          {
+            status: "pending",
+            payStatus: { $ne: "paid" },
+            outTradeNo: { $nin: ["", null] },
+          },
+          {
+            refundStatus: { $nin: ["", null] },
+            outRefundNo: { $nin: ["", null] },
+          },
+        ],
+      },
+    ],
+  })
+    .sort({ createdAt: -1 })
+    .limit(20)
+    .lean();
+
+  if (staleRows.length) {
+    await Promise.all(
+      staleRows.map((item) =>
+        item.refundStatus && item.outRefundNo
+          ? syncRemoteRefundStatusByOrder(item)
+          : syncRemotePaymentStatusByOrder(item),
+      ),
+    );
+  }
+
+  const [total, rows, counts] = await Promise.all([
+    Order.countDocuments(query),
+    Order.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean(),
+    buildOrderCounts(openid),
+  ]);
+
   return {
+    list: await buildEnrichedOrders(rows, openid, publicBaseUrl),
+    total,
+    page,
+    pageSize,
+    hasMore: page * pageSize < total,
     counts,
-    list: await buildEnrichedOrders(filtered, openid, publicBaseUrl),
   };
 }
 

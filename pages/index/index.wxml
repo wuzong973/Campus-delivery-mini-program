@@ -5,7 +5,7 @@
         <text class="home-greet">你好，{{currentUser.nickname}}</text>
         <text class="home-desc">把排队和跑腿交给顺路的同学，把时间留给更重要的事。（点击下面的“浏览任务”即可进入无门槛接单）</text>
       </view>
-      <image wx:if="{{currentUser.avatarUrl}}" class="avatar-circle avatar-large" src="{{currentUser.avatarUrl}}"></image>
+      <image mode="aspectFill" wx:if="{{currentUser.avatarUrl}}" class="avatar-circle avatar-large" src="{{currentUser.avatarUrl}}"></image>
       <view wx:else class="avatar-circle avatar-large theme-{{currentUser.avatarTheme}}">
         {{currentUser.avatarText}}
       </view>
@@ -120,7 +120,7 @@
     </view>
     <view class="runner-list">
       <view class="runner-card card" wx:for="{{hotRunners}}" wx:key="id">
-        <image class="avatar-circle" src="{{item.avatarUrl}}" wx:if="{{item.avatarUrl}}"></image>
+        <image mode="aspectFill" class="avatar-circle" src="{{item.avatarUrl}}" wx:if="{{item.avatarUrl}}"></image>
         <view class="avatar-circle theme-{{item.avatarTheme}}" wx:else>{{item.avatarText}}</view>
         <view class="runner-main">
           <view class="runner-top">

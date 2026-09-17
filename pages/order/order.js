@@ -1,6 +1,6 @@
 const api = require("../../utils/api");
-const { resolveOrderListCloudImages } = require("../../utils/cloudImages");
 const util = require("../../utils/util");
+const { resolveOrderListCloudImages } = require("../../utils/cloudImages");
 
 const MAX_DISTANCE_KM = 5;
 
@@ -128,6 +128,11 @@ Page({
     },
     rawList: [],
     list: [],
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    hasMore: false,
+    loadingMore: false,
   },
 
   // 分享给好友：定义本方法后，右上角胶囊菜单才会显示「转发」并支持「复制链接」
@@ -148,57 +153,57 @@ Page({
   },
 
   onLoad() {
-    this.getUserLocation();
+    // onShow 的全量刷新做节流：快速来回切 tab 时不必每次都打一遍完整请求
+    this.shouldRefreshOnShow = util.createRefreshThrottle();
+    // 首次进入：先取定位（失败也不阻断），再拉取订单列表。
+    // 修复前只调用了未定义的 getUserLocation()，导致首次进入列表永远空白。
+    this.getUserLocation()
+      .then((userLocation) => {
+        this.setData({ userLocation });
+      })
+      .finally(() => {
+        this.loadOrders(true, false);
+      });
   },
 
   onShow() {
-    if (this.data.initialized) {
-      this.loadOrders(false);
+    if (this.data.initialized && this.shouldRefreshOnShow()) {
+      this.loadOrders(false, false);
     }
   },
 
   onPullDownRefresh() {
-    this.loadOrders(false);
+    this.loadOrders(false, false);
   },
 
-  getScopedList(rawList, role, status) {
-    const roleFiltered = (rawList || []).filter((item) =>
-      role === "published" ? item.isMine : item.isRunner,
-    );
+  // 上拉加载更多
+  onReachBottom() {
+    this.loadOrders(false, true);
+  },
 
-    return roleFiltered.filter((item) => {
-      if (status === "accepted") {
-        return ["accepted", "delivered"].includes(item.status);
-      }
-      return item.status === status;
+  getUserLocation() {
+    return new Promise((resolve) => {
+      wx.getLocation({
+        type: "gcj02",
+        success: (result) => {
+          resolve({
+            latitude: result.latitude,
+            longitude: result.longitude,
+          });
+        },
+        fail: () => resolve(null),
+      });
     });
   },
 
-  buildCounts(rawList, role) {
-    const roleFiltered = (rawList || []).filter((item) =>
-      role === "published" ? item.isMine : item.isRunner,
-    );
-
-    return {
-      pending: roleFiltered.filter((item) => item.status === "pending").length,
-      accepted: roleFiltered.filter((item) =>
-        ["accepted", "delivered"].includes(item.status),
-      ).length,
-      completed: roleFiltered.filter((item) => item.status === "completed")
-        .length,
-      cancelled: roleFiltered.filter((item) => item.status === "cancelled")
-        .length,
+  applyView(rawList) {
+    const activeCounts = this.data.counts[this.data.activeRole] || {
+      pending: 0,
+      accepted: 0,
+      completed: 0,
+      cancelled: 0,
     };
-  },
 
-  applyView() {
-    const list = this.getScopedList(
-      this.data.rawList,
-      this.data.activeRole,
-      this.data.activeStatus,
-    ).map(mapOrderForView);
-
-    const activeCounts = this.data.counts[this.data.activeRole];
     const statusTabs = this.data.statusTabs.map((item) => ({
       label: item.label,
       value: item.value,
@@ -208,43 +213,77 @@ Page({
     this.setData({
       activeCounts,
       statusTabs,
-      list,
+      list: (rawList || []).map(mapOrderForView),
     });
   },
 
-  loadOrders(showLoading) {
+  /**
+   * 拉取订单列表。
+   *
+   * 筛选与分页都交给服务端：旧实现一次性拉全量再在前端过滤，
+   * 订单多起来后既浪费流量，也容易逼近 setData 的 1MB 上限。
+   *
+   * @param {boolean} showLoading 是否显示全屏 loading
+   * @param {boolean} append 是否追加到现有列表（上拉加载更多）
+   */
+  loadOrders(showLoading, append) {
+    if (append && (!this.data.hasMore || this.data.loadingMore)) {
+      return Promise.resolve();
+    }
+
     if (showLoading) {
       wx.showLoading({ title: "加载中", mask: true });
     }
 
-    api
-      .getOrderList("all")
+    if (append) {
+      this.setData({ loadingMore: true });
+    }
+
+    const page = append ? this.data.page + 1 : 1;
+
+    return api
+      .getOrderList({
+        status: this.data.activeStatus,
+        role: this.data.activeRole,
+        page,
+        pageSize: this.data.pageSize,
+      })
       .then((data) =>
-        resolveOrderListCloudImages(data.list || []).then((list) =>
-          Object.assign({}, data, { list }),
+        resolveOrderListCloudImages((data && data.list) || []).then(
+          (list) => ({
+            list,
+            total: Number((data && data.total) || 0),
+            hasMore: !!(data && data.hasMore),
+            counts: (data && data.counts) || this.data.counts,
+          }),
         ),
       )
-      .then((data) => {
-        const counts = {
-          published: this.buildCounts(data.list, "published"),
-          accepted: this.buildCounts(data.list, "accepted"),
-        };
+      .then((result) => {
+        const rawList = append
+          ? this.data.rawList.concat(result.list)
+          : result.list;
 
         this.setData({
           initialized: true,
           loading: false,
-          rawList: data.list,
-          counts,
+          loadingMore: false,
+          rawList,
+          counts: result.counts,
+          page,
+          total: result.total,
+          hasMore: result.hasMore,
         });
-        this.applyView();
+
+        this.applyView(rawList);
       })
       .catch((error) => {
         this.setData({
           initialized: true,
           loading: false,
+          loadingMore: false,
         });
         wx.showToast({
-          title: error.message || "加载失败",
+          title: (error && error.message) || "加载失败",
           icon: "none",
         });
       })
@@ -257,17 +296,25 @@ Page({
   },
 
   switchRole(event) {
-    this.setData({
-      activeRole: event.currentTarget.dataset.value,
-    });
-    this.applyView();
+    const nextRole = event.currentTarget.dataset.value;
+
+    if (nextRole === this.data.activeRole) {
+      return;
+    }
+
+    this.setData({ activeRole: nextRole });
+    this.loadOrders(false, false);
   },
 
   switchStatus(event) {
-    this.setData({
-      activeStatus: event.currentTarget.dataset.value,
-    });
-    this.applyView();
+    const nextStatus = event.currentTarget.dataset.value;
+
+    if (nextStatus === this.data.activeStatus) {
+      return;
+    }
+
+    this.setData({ activeStatus: nextStatus });
+    this.loadOrders(false, false);
   },
 
   openDetail(event) {
@@ -296,7 +343,7 @@ Page({
               title: "订单已取消",
               icon: "success",
             });
-            this.loadOrders(false);
+            this.loadOrders(false, false);
           })
           .catch((error) => {
             wx.showToast({
@@ -330,7 +377,7 @@ Page({
               title: "订单已完成",
               icon: "success",
             });
-            this.loadOrders(false);
+            this.loadOrders(false, false);
           })
           .catch((error) => {
             wx.showToast({
@@ -362,7 +409,7 @@ Page({
           title: paid ? "支付成功" : "支付结果确认中",
           icon: "none",
         });
-        this.loadOrders(false);
+        this.loadOrders(false, false);
       })
       .catch((error) => {
         wx.showToast({

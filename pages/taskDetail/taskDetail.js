@@ -4,6 +4,12 @@ const subscribe = require("../../utils/subscribe");
 
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
 
+// 服务端在无权限时会把联系方式替换成「接单后可见」这类文案，
+// 这里必须先确认拿到的是真正的号码再拨号，避免把提示文案当成电话号码。
+function isPhoneLike(value) {
+  return /^\d{5,20}$/.test(String(value || "").trim());
+}
+
 Page({
   data: {
     id: "",
@@ -11,6 +17,7 @@ Page({
     loading: true,
     submitting: false,
     uploadingProof: false,
+    errorMessage: "",
     task: {},
     rateScore: 5,
     rateComment: "",
@@ -49,29 +56,43 @@ Page({
   },
 
   loadDetail(showLoading) {
+    // 缺少任务 id（例如从分享链接打开但参数丢失）时直接落到空态，
+    // 否则页面会一直停在 loading 状态显示白屏。
     if (!this.data.id) {
-      return;
+      this.setData({
+        initialized: true,
+        loading: false,
+        errorMessage: "缺少任务信息，请从任务列表重新进入。",
+      });
+      return Promise.resolve();
     }
 
     if (showLoading) {
       wx.showLoading({ title: "加载中", mask: true });
     }
 
-    api
+    return api
       .getTaskDetail(this.data.id)
       .then((task) => resolveTaskCloudImages(task))
       .then((task) => {
         this.setData({
           initialized: true,
           loading: false,
+          errorMessage: "",
           task,
           rateScore: task.rating ? task.rating.score : 5,
           rateComment: task.rating ? task.rating.comment || "" : "",
         });
       })
       .catch((error) => {
+        // 失败时结束 loading 并记录错误文案，供空态区域展示，避免整页白屏。
+        this.setData({
+          initialized: true,
+          loading: false,
+          errorMessage: (error && error.message) || "加载失败，请稍后重试。",
+        });
         wx.showToast({
-          title: error.message || "加载失败",
+          title: (error && error.message) || "加载失败",
           icon: "none",
         });
       })
@@ -123,10 +144,16 @@ Page({
     let targetUser = null;
 
     if (userType === "publisher") {
+      // 服务端已按 canViewContact 脱敏：无权限时 contactPhone 是空字符串
       phone = task.contactPhone;
       targetUser = task.publisher;
     } else if (userType === "runner") {
-      phone = task.runnerPhoneText === "接单后可见" ? "" : task.runner.phone;
+      // 用权限位判断，而不是比对中文文案 —— 旧实现写死 === "接单后可见"，
+      // 后端一改文案权限判断就失效
+      phone =
+        task.canViewContact && isPhoneLike(task.runnerPhoneText)
+          ? task.runnerPhoneText
+          : "";
       targetUser = task.runner;
     }
 
@@ -262,62 +289,15 @@ Page({
     }); // 结束 subscribe.requestSubscribe
   },
 
+  // 取消订单：仅在订单可取消的状态下展示（见 taskDetail.wxml）
   handleCancel() {
     if (this.data.submitting) {
       return;
     }
 
     wx.showModal({
-      title: "确认取消",
-      content: "确认取消订单吗？取消后，已支付的款项将会原路退回。",
-      success: (result) => {
-        if (!result.confirm) {
-          return;
-        }
-
-        this.setData({ submitting: true });
-        wx.showLoading({ title: "取消中", mask: true });
-
-<<<<<<< HEAD
-        api
-          .cancelTask(this.data.id)
-=======
-        this.getCurrentLocation()
-          .then((currentLocation) =>
-            api.acceptTask(this.data.id, currentLocation),
-          )
->>>>>>> d4066644e00ebcdcbffa7abefb48c49afbb14cc6
-          .then((task) => resolveTaskCloudImages(task))
-          .then((task) => {
-            wx.hideLoading();
-            this.setData({ task });
-            wx.showToast({
-              title: "取消成功",
-              icon: "success",
-            });
-          })
-          .catch((error) => {
-            wx.hideLoading();
-            wx.showToast({
-              title: error.message || "取消失败",
-              icon: "none",
-            });
-          })
-          .finally(() => {
-            this.setData({ submitting: false });
-          });
-      },
-    });
-  },
-
-  handleCancel() {
-    if (this.data.submitting) {
-      return;
-    }
-
-    wx.showModal({
-      title: "确认取消",
-      content: "确认取消订单吗？取消后，已支付的款项将会原路退回。",
+      title: "确认取消订单",
+      content: "取消后，已支付的款项将原路退回，确认继续吗？",
       success: (result) => {
         if (!result.confirm) {
           return;
@@ -327,13 +307,13 @@ Page({
         wx.showLoading({ title: "取消中", mask: true });
 
         api
-          .cancelTask(this.data.id)
+          .cancelOrder(this.data.id)
           .then((task) => resolveTaskCloudImages(task))
           .then((task) => {
             wx.hideLoading();
             this.setData({ task });
             wx.showToast({
-              title: "取消成功",
+              title: "订单已取消",
               icon: "success",
             });
           })
@@ -352,7 +332,14 @@ Page({
   },
 
   handlePay() {
+    // 防连点：支付没有锁时，连续点击会并发发起多次预支付请求
+    if (this.data.submitting) {
+      return;
+    }
+
+    this.setData({ submitting: true });
     wx.showLoading({ title: "拉起支付中", mask: true });
+
     api
       .requestEscrowPayment(this.data.id)
       .then((result) => {
@@ -372,6 +359,9 @@ Page({
           title: error.message || "支付失败，请稍后重试",
           icon: "none",
         });
+      })
+      .finally(() => {
+        this.setData({ submitting: false });
       });
   },
 
@@ -444,6 +434,11 @@ Page({
   },
 
   handleComplete() {
+    // 防连点：重复提交会触发多次结算请求
+    if (this.data.submitting) {
+      return;
+    }
+
     wx.showModal({
       title: "完成订单",
       content: "确认订单已送达并完成结算吗？完成后收益会进入余额。",
@@ -452,6 +447,7 @@ Page({
           return;
         }
 
+        this.setData({ submitting: true });
         wx.showLoading({ title: "结算中", mask: true });
         api
           .completeOrder(this.data.id)
@@ -468,44 +464,6 @@ Page({
             wx.hideLoading();
             wx.showToast({
               title: error.message || "操作失败",
-              icon: "none",
-            });
-          });
-      },
-    });
-  },
-
-  handleCancel() {
-    if (this.data.submitting) {
-      return;
-    }
-
-    wx.showModal({
-      title: "确认取消订单",
-      content: "取消后，已支付的款项将可能原路退回，确认继续吗？",
-      success: (result) => {
-        if (!result.confirm) {
-          return;
-        }
-
-        this.setData({ submitting: true });
-        wx.showLoading({ title: "取消中", mask: true });
-
-        api
-          .cancelOrder(this.data.id)
-          .then((task) => resolveTaskCloudImages(task))
-          .then((task) => {
-            wx.hideLoading();
-            this.setData({ task });
-            wx.showToast({
-              title: "订单已取消",
-              icon: "success",
-            });
-          })
-          .catch((error) => {
-            wx.hideLoading();
-            wx.showToast({
-              title: error.message || "取消失败",
               icon: "none",
             });
           })
@@ -529,7 +487,14 @@ Page({
   },
 
   submitRating() {
+    // 防连点：重复提交会重复计算跑腿员平均分并重复发通知
+    if (this.data.submitting) {
+      return;
+    }
+
+    this.setData({ submitting: true });
     wx.showLoading({ title: "提交中", mask: true });
+
     api
       .rateRunner(this.data.id, {
         score: this.data.rateScore,
@@ -550,6 +515,9 @@ Page({
           title: error.message || "评价失败",
           icon: "none",
         });
+      })
+      .finally(() => {
+        this.setData({ submitting: false });
       });
   },
 

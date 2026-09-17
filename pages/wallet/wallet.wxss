@@ -79,3 +79,6 @@
   font-size: 24rpx;
   line-height: 1.7;
 }
+
+/* 暗色模式适配（@media prefers-color-scheme: dark 内生效） */
+@import "./wallet-wxa-auto-dark.wxss";

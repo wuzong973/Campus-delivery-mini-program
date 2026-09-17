@@ -343,3 +343,17 @@
   color: #1e86ff;
   font-weight: 700;
 }
+
+/* 详情页加载态：避免进入页面时长时间白屏 */
+.detail-loading {
+  padding: 80rpx 24rpx;
+  text-align: center;
+}
+
+.detail-loading-text {
+  font-size: 26rpx;
+  color: #90a0ba;
+}
+
+/* 暗色模式适配（@media prefers-color-scheme: dark 内生效） */
+@import "./taskDetail-wxa-auto-dark.wxss";

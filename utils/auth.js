@@ -67,63 +67,10 @@ function clearSession() {
   wx.removeStorageSync(SESSION_KEY);
 }
 
-function waitForLogin() {
-  if (loginPromise) {
-    return loginPromise;
-  }
-
-  const cachedSession = sanitizeSession(getCachedSession());
-  if (cachedSession && cachedSession.token && cachedSession.openid) {
-    request.setToken(cachedSession.token);
-    setCachedSession(cachedSession);
-    return Promise.resolve(cachedSession);
-  }
-
-  return login(false);
-}
-
-function login(forceRefresh, userInfo, openid) {
-  if (!forceRefresh) {
-    const cachedSession = sanitizeSession(getCachedSession());
-    if (cachedSession && cachedSession.token && cachedSession.openid) {
-      request.setToken(cachedSession.token);
-      setCachedSession(cachedSession);
-      return Promise.resolve(cachedSession);
-    }
-
-    if (loginPromise) {
-      return loginPromise;
-    }
-  }
-
-  const normalizedOpenid = String(openid || "").trim();
-  const currentLoginSeq = ++loginPromiseSequence;
-
-  if (normalizedOpenid) {
-    loginPromise = request
-      .request({
-        url: "/auth/login",
-        method: "POST",
-        data: {
-          openid: normalizedOpenid,
-          userInfo: userInfo || null,
-        },
-      })
-      .then((result) => updateCachedSession(result || {}))
-      .catch((error) => {
-        clearSession();
-        throw error;
-      })
-      .finally(() => {
-        if (loginPromiseSequence === currentLoginSeq) {
-          loginPromise = null;
-        }
-      });
-
-    return loginPromise;
-  }
-
-  loginPromise = new Promise((resolve, reject) => {
+// 用 wx.login 的 code 换取会话。这是唯一合法的登入方式：
+// openid 必须由服务端向微信换取，客户端不得自行提供（否则等于允许任意账号登录）。
+function loginWithWechatCode(userInfo) {
+  return new Promise((resolve, reject) => {
     wx.login({
       success(loginRes) {
         if (!loginRes || !loginRes.code) {
@@ -141,9 +88,7 @@ function login(forceRefresh, userInfo, openid) {
               appId: config.appId,
             },
           })
-          .then((result) => {
-            resolve(updateCachedSession(result || {}));
-          })
+          .then((result) => resolve(updateCachedSession(result || {})))
           .catch((error) => {
             clearSession();
             reject(error);
@@ -153,13 +98,91 @@ function login(forceRefresh, userInfo, openid) {
         reject(new Error((error && error.errMsg) || "微信登录失败"));
       },
     });
-  }).finally(() => {
-    if (loginPromiseSequence === currentLoginSeq) {
-      loginPromise = null;
-    }
   });
+}
+
+// 用本地缓存的 token 向服务端校验会话是否仍然有效。
+// skipAuthRetry：这里不希望 request 层自动重新登录，失败时由本模块统一决定
+// 是否回退到 wx.login，避免出现两次并行登录、拿到两个不同的会话。
+function restoreSession(session) {
+  request.setToken(session.token);
+
+  return request
+    .request({
+      url: "/auth/session",
+      method: "GET",
+      skipAuthRetry: true,
+    })
+    .then((result) =>
+      updateCachedSession({
+        token: session.token,
+        openid: (result && result.openid) || session.openid,
+        user: result && result.user,
+      }),
+    );
+}
+
+function runLogin(userInfo) {
+  if (loginPromise) {
+    return loginPromise;
+  }
+
+  const currentSeq = ++loginPromiseSequence;
+
+  loginPromise = loginWithWechatCode(userInfo || null)
+    .catch((error) => {
+      clearSession();
+      throw error;
+    })
+    .finally(() => {
+      if (loginPromiseSequence === currentSeq) {
+        loginPromise = null;
+      }
+    });
 
   return loginPromise;
+}
+
+function waitForLogin() {
+  if (loginPromise) {
+    return loginPromise;
+  }
+
+  const cachedSession = sanitizeSession(getCachedSession());
+
+  // 没有可用 token，直接走微信登录
+  if (!cachedSession || !cachedSession.token) {
+    return runLogin(null);
+  }
+
+  // 有 token：先向服务端确认有效性，失效再回退到微信登录。
+  // 注意这里不再像旧实现那样「有 token 就直接采信」——本地缓存可能已过期或被篡改。
+  const currentSeq = ++loginPromiseSequence;
+
+  loginPromise = restoreSession(cachedSession)
+    .catch(() => {
+      clearSession();
+      return loginWithWechatCode(null);
+    })
+    .catch((error) => {
+      clearSession();
+      throw error;
+    })
+    .finally(() => {
+      if (loginPromiseSequence === currentSeq) {
+        loginPromise = null;
+      }
+    });
+
+  return loginPromise;
+}
+
+function login(forceRefresh, userInfo) {
+  if (forceRefresh) {
+    return runLogin(userInfo || null);
+  }
+
+  return waitForLogin();
 }
 
 function ensureLogin() {

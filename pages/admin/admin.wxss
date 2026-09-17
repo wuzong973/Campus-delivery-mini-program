@@ -60,3 +60,6 @@
   background: #f5f8fc;
   color: #5f708d;
 }
+
+/* 暗色模式适配（@media prefers-color-scheme: dark 内生效） */
+@import "./admin-wxa-auto-dark.wxss";

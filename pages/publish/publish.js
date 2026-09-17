@@ -71,7 +71,6 @@ Page({
       platformFee: "¥0.02",
       runnerIncome: "¥1.98",
     },
-<<<<<<< HEAD
   },
 
   // 分享给好友：定义本方法后，右上角胶囊菜单才会显示「转发」并支持「复制链接」
@@ -89,16 +88,42 @@ Page({
       title: "校园代拿 - 来发个代拿任务吧",
       query: ""
     };
-=======
->>>>>>> d4066644e00ebcdcbffa7abefb48c49afbb14cc6
   },
 
   onLoad() {
-    this.loadProfile();
+    this.loadProfile(true);
   },
 
-  loadProfile() {
-    wx.showLoading({ title: "加载中", mask: true });
+  onShow() {
+    // 用户可能刚去「个人资料」页补全信息再返回本页。
+    // 若不重新拉取，profileState 会保持旧值，导致 validateForm 一直提示「请先完善个人资料」。
+    // 注意：这里只刷新资料与校验状态，绝不能重置 form，
+    // 否则用户切个 tab 回来正在填写的表单就被清空了。
+    if (!this.data.loading) {
+      this.refreshProfileState();
+    }
+  },
+
+  refreshProfileState() {
+    return api
+      .getCurrentUserProfile()
+      .then((profile) => {
+        this.setData({
+          profile,
+          profileState: business.getProfileCompletion(profile || {}),
+          profileCommonAddressText:
+            profile && profile.commonAddress ? profile.commonAddress : "未设置",
+        });
+      })
+      .catch(() => {
+        // 静默刷新失败不影响用户继续填写表单
+      });
+  },
+
+  loadProfile(showLoading) {
+    if (showLoading !== false) {
+      wx.showLoading({ title: "加载中", mask: true });
+    }
     api
       .getCurrentUserProfile()
       .then((profile) => {
@@ -123,7 +148,9 @@ Page({
         });
       })
       .finally(() => {
-        wx.hideLoading();
+        if (showLoading !== false) {
+          wx.hideLoading();
+        }
       });
   },
 
@@ -378,13 +405,10 @@ Page({
     };
   },
 
-<<<<<<< HEAD
   // 提交订单按钮入口（bindtap）
   // 集成一次性订阅消息：在用户点击「提交订单」时同步唤起「下单成功通知」授权弹窗。
   // 微信规则：wx.requestSubscribeMessage 必须由用户点击事件同步触发，
   // 因此放在校验通过后、发起请求前的同步调用链中。无论同意/拒绝都不阻断下单业务。
-=======
->>>>>>> d4066644e00ebcdcbffa7abefb48c49afbb14cc6
   handleSubmit() {
     if (this.data.submitting) {
       return;
@@ -395,72 +419,6 @@ Page({
       wx.showToast({
         title: validationMessage,
         icon: "none",
-<<<<<<< HEAD
-=======
-      });
-      return;
-    }
-
-    const payload = this.buildSubmitPayload();
-    let createdOrderId = "";
-
-    this.setData({ submitting: true });
-    wx.showLoading({ title: "发布中", mask: true });
-
-    api
-      .createTask(payload)
-      .then((order) => {
-        createdOrderId = order && (order.id || order._id);
-        return api.requestEscrowPayment(createdOrderId);
-      })
-      .then((paymentResult) => {
-        wx.hideLoading();
-        wx.showToast({
-          title:
-            paymentResult && paymentResult.payStatus === "paid"
-              ? "发布并支付成功"
-              : "支付结果确认中",
-          icon:
-            paymentResult && paymentResult.payStatus === "paid" ? "success" : "none",
-        });
-        setTimeout(() => {
-          wx.switchTab({
-            url: "/pages/order/order",
-          });
-        }, 500);
-      })
-      .catch((error) => {
-        wx.hideLoading();
-        const code = error && error.code;
-
-        if (createdOrderId && (code === "PAY_CANCEL" || code === "PAY_PENDING")) {
-          wx.showModal({
-            title: code === "PAY_CANCEL" ? "支付已取消" : "支付结果确认中",
-            content:
-              code === "PAY_CANCEL"
-                ? "订单已创建，可前往订单页继续支付。"
-                : "订单已创建，支付结果正在确认，请到订单页查看。",
-            confirmText: "去订单页",
-            cancelText: "留在当前页",
-            success: (result) => {
-              if (result.confirm) {
-                wx.switchTab({
-                  url: "/pages/order/order",
-                });
-              }
-            },
-          });
-          return;
-        }
-
-        wx.showToast({
-          title: (error && error.message) || "发布失败，请稍后重试",
-          icon: "none",
-        });
-      })
-      .finally(() => {
-        this.setData({ submitting: false });
->>>>>>> d4066644e00ebcdcbffa7abefb48c49afbb14cc6
       });
       return;
     }

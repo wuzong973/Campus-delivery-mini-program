@@ -104,3 +104,6 @@
   line-height: 1.7;
   color: #7b89a5;
 }
+
+/* 暗色模式适配（@media prefers-color-scheme: dark 内生效） */
+@import "./publish-wxa-auto-dark.wxss";

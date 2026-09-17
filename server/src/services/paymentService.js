@@ -16,6 +16,7 @@ const {
   recordAbnormal,
   Order,
   PaymentLog,
+  businessError,
 } = require("./shared");
 
 async function addPaymentLog(type, payload) {
@@ -29,7 +30,7 @@ async function addPaymentLog(type, payload) {
 
 async function markOrderPaid(order, source, tradeInfo) {
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
 
   const transactionId =
@@ -82,7 +83,7 @@ async function markOrderPaid(order, source, tradeInfo) {
 
 async function syncRemotePaymentStatusByOrder(order) {
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
 
   if (order.payStatus === "paid") {
@@ -169,16 +170,16 @@ function isAlreadyPaidError(error) {
 async function createEscrowPayment(openid, orderId) {
   let order = await Order.findById(orderId).lean();
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
   if (order.publisherOpenId !== openid) {
-    throw new Error("只能为自己的订单支付");
+    throw businessError("只能为自己的订单支付");
   }
   if (order.status !== "pending") {
-    throw new Error("当前订单状态不支持继续支付");
+    throw businessError("当前订单状态不支持继续支付");
   }
   if (["processing", "success"].includes(order.refundStatus || "")) {
-    throw new Error("当前订单退款处理中或已退款，无法继续支付");
+    throw businessError("当前订单退款处理中或已退款，无法继续支付");
   }
 
   if (order.payStatus === "paid") {
@@ -300,10 +301,10 @@ async function createEscrowPayment(openid, orderId) {
 async function getPaymentStatus(openid, orderId) {
   const order = await Order.findById(orderId).lean();
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
   if (order.publisherOpenId !== openid && order.runnerOpenId !== openid) {
-    throw new Error("无权查看当前订单支付状态");
+    throw businessError("无权查看当前订单支付状态");
   }
 
   return syncRemotePaymentStatusByOrder(order);
@@ -383,20 +384,20 @@ async function syncRemoteRefundStatusByOrder(order) {
 
 async function applyRefund(order) {
   if (!order) {
-    throw new Error("退款目标订单不存在");
+    throw businessError("退款目标订单不存在");
   }
 
   const syncedStatus = await syncRemotePaymentStatusByOrder(order);
   if (syncedStatus.payStatus !== "paid") {
-    throw new Error("订单未支付，无法退款");
+    throw businessError("订单未支付，无法退款");
   }
 
   const refreshedOrder = await Order.findById(order._id).lean();
   if (!refreshedOrder || refreshedOrder.payStatus !== "paid") {
-    throw new Error("订单支付状态异常，无法退款");
+    throw businessError("订单支付状态异常，无法退款");
   }
   if (!refreshedOrder.outTradeNo) {
-    throw new Error("订单缺少商户单号，无法退款");
+    throw businessError("订单缺少商户单号，无法退款");
   }
   if (
     refreshedOrder.refundStatus &&
@@ -404,7 +405,7 @@ async function applyRefund(order) {
       refreshedOrder.refundStatus,
     )
   ) {
-    throw new Error(
+    throw businessError(
       `当前退款状态为 ${refreshedOrder.refundStatus}，请勿重复操作`,
     );
   }
@@ -477,14 +478,14 @@ async function applyRefund(order) {
 async function manualReconcileByOrderNo(orderNo) {
   const normalized = String(orderNo || "").trim();
   if (!normalized) {
-    throw new Error("请提供订单号");
+    throw businessError("请提供订单号");
   }
 
   const order = await Order.findOne({
     $or: [{ orderNo: normalized }, { outTradeNo: normalized }],
   }).lean();
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
 
   const result = await syncRemotePaymentStatusByOrder(order);
@@ -511,13 +512,13 @@ async function handlePayCallback(headers, rawBody) {
   });
 
   if (!valid) {
-    throw new Error("微信支付回调验签失败");
+    throw businessError("微信支付回调验签失败");
   }
 
   const callbackBody = JSON.parse(rawBody || "{}");
   const resource = callbackBody.resource;
   if (!resource) {
-    throw new Error("微信支付回调缺少 resource");
+    throw businessError("微信支付回调缺少 resource");
   }
 
   const decrypted = decryptCallbackResource(resource);
@@ -536,7 +537,7 @@ async function handlePayCallback(headers, rawBody) {
   });
 
   if (!order) {
-    throw new Error("回调对应订单不存在");
+    throw businessError("回调对应订单不存在");
   }
 
   if (tradeState !== "SUCCESS") {

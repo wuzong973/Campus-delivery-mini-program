@@ -45,7 +45,7 @@
       <view class="card record-card" wx:for="{{wallet.withdrawals}}" wx:key="id">
         <view class="row-between">
           <text class="record-amount">{{item.amountText}}</text>
-          <text class="record-status {{item.status}}">{{item.status}}</text>
+          <text class="record-status {{item.status}}">{{item.statusText}}</text>
         </view>
         <text class="record-time">{{item.createdAtText}}</text>
         <text class="record-remark" wx:if="{{item.remark}}">{{item.remark}}</text>

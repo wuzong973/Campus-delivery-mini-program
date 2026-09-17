@@ -1,6 +1,7 @@
 const { adminOpenids } = require("../config/env");
 const { codeToSession } = require("../config/wechat");
 const { signToken } = require("../utils/jwt");
+const { isValidOpenid } = require("../utils/validate");
 const { now, normalizeUser, getCurrentUser, User } = require("./shared");
 
 function shouldGrantAdmin(openid) {
@@ -65,26 +66,38 @@ async function ensureLoginUser(openid, payload) {
   return user;
 }
 
+/**
+ * 微信登录：只接受 wx.login 返回的 code，由服务端向微信换取 openid。
+ *
+ * 安全约束（重要）：绝不接受请求体里直接传入的 openid。
+ * 历史实现允许 `{ openid: "xxx" }` 直接换取 token，导致任何人只要拿到
+ * 他人的 openid（接单大厅接口曾泄露）就能登录成对方，构成完整的账号接管链。
+ * 会话恢复请改用 GET /auth/session（基于已签发的 token 校验），不要回退到裸 openid。
+ */
 async function loginWithWechat(payload) {
-  const directOpenid = String((payload && payload.openid) || "").trim();
+  const code = String((payload && payload.code) || "").trim();
 
-  if (!directOpenid && (!payload || !payload.code)) {
-    const error = new Error("缺少 openid 或微信登录 code");
+  if (!code) {
+    const error = new Error("缺少微信登录 code");
     error.statusCode = 400;
     error.code = "MISSING_LOGIN_CREDENTIALS";
     throw error;
   }
 
-  let openid = directOpenid;
-  if (!openid) {
-    const session = await codeToSession(payload.code);
-    openid = session && session.openid ? session.openid : "";
-  }
+  const session = await codeToSession(code);
+  const openid = session && session.openid ? String(session.openid).trim() : "";
 
   if (!openid) {
     const error = new Error("登录失败，未获取到 openid");
     error.statusCode = 502;
     error.code = "MISSING_OPENID";
+    throw error;
+  }
+
+  if (!isValidOpenid(openid)) {
+    const error = new Error("登录失败，openid 格式异常");
+    error.statusCode = 502;
+    error.code = "INVALID_OPENID";
     throw error;
   }
 
@@ -110,7 +123,28 @@ async function loginWithWechat(payload) {
   };
 }
 
+/**
+ * 会话恢复：校验已签发的 token 是否仍然有效，并回传当前用户资料。
+ * 供小程序冷启动时使用，替代过去「拿缓存 openid 重新换 token」的不安全做法。
+ */
+async function getSession(openid) {
+  const user = await getCurrentUser(openid);
+  if (!user) {
+    const error = new Error("用户不存在，请重新登录");
+    error.statusCode = 401;
+    error.code = "AUTH_EXPIRED";
+    throw error;
+  }
+
+  return {
+    openid,
+    user: normalizeUser(user),
+  };
+}
+
 module.exports = {
   loginWithWechat,
+  getSession,
   ensureLoginUser,
+  isValidOpenid,
 };
