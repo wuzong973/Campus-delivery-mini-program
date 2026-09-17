@@ -1,7 +1,7 @@
 <view class="chat-page">
   <view class="chat-header" wx:if="{{session}}">
     <view class="header-main">
-      <image
+      <image mode="aspectFill"
         class="avatar-circle avatar-small"
         wx:if="{{session.targetUser && session.targetUser.avatarUrl}}"
         src="{{session.targetUser.avatarUrl}}"
@@ -40,12 +40,12 @@
         <view class="message-time" wx:if="{{item.showTime}}">{{item.timeText}}</view>
 
         <view class="message-row {{item.isMe ? 'is-me' : ''}}">
-          <image
+          <image mode="aspectFill"
             class="avatar-circle avatar-small"
             wx:if="{{item.isMe && session && session.currentUser && session.currentUser.avatarUrl}}"
             src="{{session.currentUser.avatarUrl}}"
           ></image>
-          <image
+          <image mode="aspectFill"
             class="avatar-circle avatar-small"
             wx:elif="{{!item.isMe && session && session.targetUser && session.targetUser.avatarUrl}}"
             src="{{session.targetUser.avatarUrl}}"

@@ -88,6 +88,47 @@ function formatRelativeTime(timestamp) {
   return `${Math.floor(diff / day)} 天前`;
 }
 
+// 按业务语义推断 HTTP 状态码。
+// 匹配的都是**本仓库自己写的中文提示**，不是第三方返回的文本，
+// 因此不存在「上游改文案就失效」的问题；万一没命中，兜底 400 也比 500 合理。
+const BUSINESS_STATUS_RULES = [
+  { pattern: /请重新登录|登录已失效/, status: 401 },
+  { pattern: /没有管理员权限|无权|仅[^，。]*可|只有[^，。]*可以/, status: 403 },
+  { pattern: /不存在/, status: 404 },
+];
+
+function resolveBusinessStatus(message) {
+  const text = String(message || "");
+
+  for (const rule of BUSINESS_STATUS_RULES) {
+    if (rule.pattern.test(text)) {
+      return rule.status;
+    }
+  }
+
+  return 400;
+}
+
+/**
+ * 业务错误：服务层主动抛出、属于「预期内的业务结果」，而不是服务端故障。
+ *
+ * 为什么需要它：旧代码一律 `throw businessError(...)`，而错误中间件对没有
+ * statusCode 的错误默认按 500 处理 —— 于是「余额不足」「请填写收件人姓名」
+ * 这类正常业务结果全部变成 500，既语义错误，又让真正的服务异常淹没在
+ * 满屏堆栈里（线上日志已经出现这个问题）。
+ *
+ * 用法：把服务层的 `throw businessError(msg)` 换成 `throw businessError(msg)`。
+ * 配置缺失、网络失败、数据库异常等**非业务**错误继续用 `new Error`，
+ * 保持 500 语义以便监控告警能区分开。
+ */
+function businessError(message, code) {
+  const error = new Error(message);
+  error.statusCode = resolveBusinessStatus(message);
+  error.code = code || "BUSINESS_FAIL";
+  error.isBusinessError = true;
+  return error;
+}
+
 function getAvatarText(name) {
   return name ? String(name).trim().slice(0, 1) : "我";
 }
@@ -133,6 +174,28 @@ function normalizeUser(user) {
     profileComplete: profileState.isComplete,
     missingProfileFields: profileState.missingFields,
     missingProfileText: profileState.missingText,
+  };
+}
+
+/**
+ * 对外展示用的用户信息（脱敏版）。
+ *
+ * 与 normalizeUser 的区别：不含 openid / phone / commonAddress / 钱包与收益等
+ * 仅本人可见的字段。凡是把「他人」信息下发给客户端的场景（接单大厅的发布者、
+ * 订单里的接单者、聊天里的对方）都必须用这个，避免手机号、常用地址、
+ * openid 被批量拉取 —— 其中 openid 泄露会直接构成账号接管的前提条件。
+ */
+function publicUser(user) {
+  return {
+    id: user ? user._id : "",
+    nickname: (user && user.nickname) || "校园同学",
+    avatarUrl: (user && user.avatarUrl) || "",
+    avatarTheme: (user && user.avatarTheme) || "ocean",
+    avatarText: getAvatarText((user && user.nickname) || "我"),
+    slogan: (user && user.slogan) || "",
+    completedJobs: Number((user && user.completedJobs) || 0),
+    averageScore: Number((user && user.averageScore) || 0),
+    ratingText: Number((user && user.averageScore) || 0).toFixed(1),
   };
 }
 
@@ -374,7 +437,7 @@ async function ensureTakeCount(openid) {
     status: { $in: ["accepted", "delivered"] },
   });
   if (count >= TAKE_LIMIT) {
-    throw new Error(`当前最多只能同时承接 ${TAKE_LIMIT} 单任务`);
+    throw businessError(`当前最多只能同时承接 ${TAKE_LIMIT} 单任务`);
   }
 }
 
@@ -402,11 +465,11 @@ function enrichOrder(
   favoriteSet,
   publicBaseUrl,
 ) {
-  const publisher = normalizeUser(
+  const publisher = publicUser(
     (userMap && userMap[order.publisherOpenId]) || {},
   );
   const runner = order.runnerOpenId
-    ? normalizeUser((userMap && userMap[order.runnerOpenId]) || {})
+    ? publicUser((userMap && userMap[order.runnerOpenId]) || {})
     : null;
   const isMine = order.publisherOpenId === currentOpenid;
   const isRunner = order.runnerOpenId === currentOpenid;
@@ -554,37 +617,79 @@ async function buildEnrichedOrders(orders, currentOpenid, publicBaseUrl) {
 }
 
 async function upsertFinanceStats(totalFee, platformFee, runnerIncome) {
-  const existing = await SystemStat.findById("finance").lean();
-  if (!existing) {
-    await SystemStat.create({
-      _id: "finance",
-      totalVolume: roundMoney(totalFee),
-      platformIncome: roundMoney(platformFee),
-      totalRunnerIncome: roundMoney(runnerIncome),
-      updatedAt: now(),
-    });
-    return;
-  }
-
+  // 单次原子 upsert + $inc：旧实现是「先查是否存在，不存在则 create」，
+  // 两个并发结算会同时判定「不存在」而重复累加或触发 _id 冲突。
   await SystemStat.updateOne(
     { _id: "finance" },
     {
-      $set: {
-        updatedAt: now(),
-      },
       $inc: {
         totalVolume: roundMoney(totalFee),
         platformIncome: roundMoney(platformFee),
         totalRunnerIncome: roundMoney(runnerIncome),
       },
+      $set: {
+        updatedAt: now(),
+      },
+      $setOnInsert: {
+        createdAt: now(),
+      },
     },
+    { upsert: true, setDefaultsOnInsert: false },
   );
 }
 
+// 结算抢占的过期时间：超过这个时间仍停在 settling，视为上一次结算异常中断
+// （进程崩溃、重启等），允许后续请求补偿执行，避免订单永远结不了账。
+const SETTLEMENT_CLAIM_STALE_MS = 5 * 60 * 1000;
+
 async function settleOrderIfNeeded(order, runnerUser, publisherUser) {
-  const existing = await SettlementLog.findById(order._id).lean();
-  if (existing && existing.status === "settled") {
-    return existing;
+  // 以 SettlementLog 的 status 作为唯一闸门做原子抢占。
+  //
+  // 旧实现是「先 findById 查是否已结算，再 $inc 加钱，最后才写日志」——
+  // 两个并发的「确认完成」请求会同时通过检查，导致骑手余额被加两次。
+  //
+  // findOneAndUpdate(new: false) 返回更新前的文档，据此判断：
+  //   null             → 本次是首个请求（刚插入 settling），由我执行结算
+  //   status settled   → 已结算，直接返回，不再动钱
+  //   status settling  → 另有请求正在结算，跳过，避免重复入账
+  // 注意：_id 由查询条件提供，不能出现在 $set 里 ——
+  // MongoDB 不允许修改不可变的 _id 字段，否则整条更新会报错。
+  const settlementFields = {
+    orderId: order._id,
+    runnerOpenId: order.runnerOpenId,
+    publisherOpenId: order.publisherOpenId,
+    rewardAmount: roundMoney(order.rewardAmount),
+    platformFee: roundMoney(order.platformFee),
+    runnerIncome: roundMoney(order.runnerIncome),
+  };
+
+  const previous = await SettlementLog.findOneAndUpdate(
+    { _id: order._id },
+    {
+      $setOnInsert: {
+        ...settlementFields,
+        status: "settling",
+        createdAt: now(),
+      },
+      $set: { updatedAt: now() },
+    },
+    { upsert: true, new: false, setDefaultsOnInsert: false },
+  );
+
+  if (previous && previous.status === "settled") {
+    return previous;
+  }
+
+  if (previous && previous.status === "settling") {
+    const claimedAt = Number(previous.updatedAt || previous.createdAt || 0);
+    const isStale =
+      claimedAt > 0 && now() - claimedAt > SETTLEMENT_CLAIM_STALE_MS;
+
+    if (!isStale) {
+      // 另一个请求正在结算中，直接复用，避免重复给骑手加钱
+      return previous;
+    }
+    // 抢占已过期，落到下面走补偿结算
   }
 
   await User.updateOne(
@@ -621,24 +726,20 @@ async function settleOrderIfNeeded(order, runnerUser, publisherUser) {
     order.runnerIncome,
   );
 
-  const settlementDoc = {
-    _id: order._id,
-    orderId: order._id,
-    runnerOpenId: order.runnerOpenId,
-    publisherOpenId: order.publisherOpenId,
-    rewardAmount: roundMoney(order.rewardAmount),
-    platformFee: roundMoney(order.platformFee),
-    runnerIncome: roundMoney(order.runnerIncome),
-    status: "settled",
-    createdAt: now(),
-    updatedAt: now(),
-  };
-  await SettlementLog.findOneAndUpdate(
+  return SettlementLog.findOneAndUpdate(
     { _id: order._id },
-    { $set: settlementDoc },
-    { upsert: true, new: true },
+    {
+      $set: {
+        ...settlementFields,
+        status: "settled",
+        updatedAt: now(),
+      },
+      $setOnInsert: {
+        createdAt: now(),
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: false },
   );
-  return settlementDoc;
 }
 
 function buildChatPreview(type, content) {
@@ -782,18 +883,18 @@ async function requireChatContext(currentOpenid, orderId, targetUserId) {
   const order = await Order.findById(orderId).lean();
 
   if (!currentUser) {
-    throw new Error("用户不存在，请重新登录");
+    throw businessError("用户不存在，请重新登录");
   }
 
   if (!order) {
-    throw new Error("订单不存在");
+    throw businessError("订单不存在");
   }
 
   const isPublisher = order.publisherOpenId === currentOpenid;
   const isRunner = order.runnerOpenId === currentOpenid;
 
   if (!isPublisher && !isRunner) {
-    throw new Error("只有订单双方可以进入聊天");
+    throw businessError("只有订单双方可以进入聊天");
   }
 
   const counterpartOpenid = isPublisher
@@ -801,21 +902,21 @@ async function requireChatContext(currentOpenid, orderId, targetUserId) {
     : order.publisherOpenId;
 
   if (!counterpartOpenid) {
-    throw new Error("订单暂未匹配聊天对象");
+    throw businessError("订单暂未匹配聊天对象");
   }
 
   let targetUser = null;
   if (targetUserId) {
     targetUser = await User.findById(targetUserId).lean();
     if (!targetUser || targetUser.openid !== counterpartOpenid) {
-      throw new Error("聊天对象不正确");
+      throw businessError("聊天对象不正确");
     }
   } else {
     targetUser = await User.findOne({ openid: counterpartOpenid }).lean();
   }
 
   if (!targetUser) {
-    throw new Error("聊天对象不存在");
+    throw businessError("聊天对象不存在");
   }
 
   return {
@@ -828,25 +929,25 @@ async function requireChatContext(currentOpenid, orderId, targetUserId) {
 async function requireChatSessionAccess(currentOpenid, sessionId) {
   const currentUser = await getCurrentUser(currentOpenid);
   if (!currentUser) {
-    throw new Error("用户不存在，请重新登录");
+    throw businessError("用户不存在，请重新登录");
   }
 
   const session = await ChatSession.findById(sessionId).lean();
   if (!session) {
-    throw new Error("聊天会话不存在");
+    throw businessError("聊天会话不存在");
   }
 
   if (!Array.isArray(session.participantOpenIds)) {
-    throw new Error("聊天会话数据异常");
+    throw businessError("聊天会话数据异常");
   }
 
   if (!session.participantOpenIds.includes(currentOpenid)) {
-    throw new Error("你无权访问该聊天会话");
+    throw businessError("你无权访问该聊天会话");
   }
 
   const order = await Order.findById(session.orderId).lean();
   if (!order) {
-    throw new Error("关联订单不存在");
+    throw businessError("关联订单不存在");
   }
 
   const users = await User.find({
@@ -896,8 +997,8 @@ function formatChatSession(
       session.lastMessageAt || session.updatedAt || 0,
     ),
     unreadCount: Number(unreadCounts[currentOpenid] || 0),
-    currentUser: currentUser ? normalizeUser(currentUser) : null,
-    targetUser: counterpartUser ? normalizeUser(counterpartUser) : null,
+    currentUser: currentUser ? publicUser(currentUser) : null,
+    targetUser: counterpartUser ? publicUser(counterpartUser) : null,
     currentRole:
       currentOpenid === order.publisherOpenId ? "publisher" : "runner",
   };
@@ -958,7 +1059,7 @@ async function ensureChatSession(currentOpenid, payload) {
 async function getChatSessions(currentOpenid) {
   const currentUser = await getCurrentUser(currentOpenid);
   if (!currentUser) {
-    throw new Error("用户不存在，请重新登录");
+    throw businessError("用户不存在，请重新登录");
   }
 
   const sessions = await ChatSession.find({
@@ -1019,37 +1120,57 @@ async function getChatMessages(currentOpenid, sessionId) {
   const { currentUser, session, order, counterpartUser } =
     await requireChatSessionAccess(currentOpenid, sessionId);
 
-  await bindLegacyMessagesToSession(session, currentUser, counterpartUser);
+  let sessionState = session;
 
-  await Chat.updateMany(
-    {
-      sessionId,
-      toUserOpenId: currentOpenid,
-      readByOpenIds: { $ne: currentOpenid },
-    },
-    {
-      $addToSet: {
-        readByOpenIds: currentOpenid,
-      },
-    },
+  // 历史消息迁移只在「会话从未有过任何消息」时执行一次。
+  // 旧实现把它无条件放在 getChatMessages 里，而聊天详情页每 4 秒轮询一次，
+  // 等于每 4 秒就跑一次 $and/$or 复合查询，随消息表增长会持续拖慢数据库。
+  // 正常情况下会话创建时（ensureChatSession）已经迁移过，这里只作为兜底。
+  if (!session.lastMessageAt) {
+    await bindLegacyMessagesToSession(session, currentUser, counterpartUser);
+    sessionState = (await ChatSession.findById(sessionId).lean()) || session;
+  }
+
+  // 只有确实存在未读消息时才写库。
+  // 轮询在没有新消息时必须保持纯读，否则每个在线用户每 4 秒都会产生
+  // 一次 updateMany + 一次 updateOne 的无意义写入。
+  const unreadForMe = Number(
+    (sessionState.unreadCounts || {})[currentOpenid] || 0,
   );
 
-  await ChatSession.updateOne(
-    { _id: sessionId },
-    {
-      $set: {
-        [`unreadCounts.${currentOpenid}`]: 0,
-        updatedAt: now(),
+  if (unreadForMe > 0) {
+    await Chat.updateMany(
+      {
+        sessionId,
+        toUserOpenId: currentOpenid,
+        readByOpenIds: { $ne: currentOpenid },
       },
-    },
-  );
+      {
+        $addToSet: {
+          readByOpenIds: currentOpenid,
+        },
+      },
+    );
 
-  const refreshedSession = await ChatSession.findById(sessionId).lean();
+    await ChatSession.updateOne(
+      { _id: sessionId },
+      {
+        $set: {
+          [`unreadCounts.${currentOpenid}`]: 0,
+          updatedAt: now(),
+        },
+      },
+    );
+
+    sessionState =
+      (await ChatSession.findById(sessionId).lean()) || sessionState;
+  }
+
   const messages = await Chat.find({ sessionId }).sort({ createdAt: 1 }).lean();
 
   return {
     session: formatChatSession(
-      refreshedSession || session,
+      sessionState,
       order,
       currentOpenid,
       counterpartUser,
@@ -1071,7 +1192,7 @@ async function sendChatMessage(currentOpenid, sessionId, payload) {
   const imageUrl = messageType === "image" ? rawImageUrl || rawContent : "";
 
   if (!content) {
-    throw new Error("消息内容不能为空");
+    throw businessError("消息内容不能为空");
   }
 
   const toUserOpenId = (session.participantOpenIds || []).find(
@@ -1165,10 +1286,13 @@ module.exports = {
   formatCurrency,
   formatTime,
   formatRelativeTime,
+  businessError,
+  resolveBusinessStatus,
   getAvatarText,
   isPhone,
   getProfileState,
   normalizeUser,
+  publicUser,
   extractCampusArea,
   calculateDistanceKm,
   formatDistance,

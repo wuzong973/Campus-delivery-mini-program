@@ -1,4 +1,5 @@
 const fs = require("fs");
+const crypto = require("crypto");
 const path = require("path");
 const express = require("express");
 const multer = require("multer");
@@ -7,7 +8,8 @@ const jwt = require("jsonwebtoken");
 const env = require("../config/env");
 const authMiddleware = require("../middleware/auth");
 const adminMiddleware = require("../middleware/admin");
-const { loginWithWechat } = require("../services/authService");
+const { createRateLimiter } = require("../middleware/security");
+const { loginWithWechat, getSession } = require("../services/authService");
 const { getMe, updateMe } = require("../services/userService");
 const {
   getHomeData,
@@ -43,9 +45,49 @@ const {
   getChatSessions,
   getChatMessages,
   sendChatMessage,
+  businessError,
 } = require("../services/shared");
 
 const router = express.Router();
+
+/**
+ * 已登录路由的限流维度：优先按用户（openid），退化到 IP。
+ *
+ * 为什么不直接按 IP：校园网常整栋楼共用一个出口 IP，
+ * 按 IP 限流会让同宿舍楼的其他同学一起被拦，误伤面太大。
+ * 登录接口没有 openid，仍按 IP 限流 —— 那正是防撞库需要的维度。
+ */
+function byUserOrIp(req) {
+  return (req.user && req.user.openid) || req.ip || "unknown";
+}
+
+// 敏感接口的独立限流策略（与全站兜底限流叠加生效）
+const loginRateLimiter = createRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 60,
+  message: "登录尝试过于频繁，请稍后再试。",
+});
+
+const createOrderRateLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: "发布过于频繁，请稍后再试。",
+  keyGenerator: byUserOrIp,
+});
+
+const withdrawalRateLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: "提现申请过于频繁，请稍后再试。",
+  keyGenerator: byUserOrIp,
+});
+
+const chatSendRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: "发送过于频繁，请稍后再试。",
+  keyGenerator: byUserOrIp,
+});
 
 function success(res, data) {
   return res.json({
@@ -68,6 +110,58 @@ function extractToken(req) {
   return queryToken || bearer || xAccessToken;
 }
 
+// 允许的图片类型 → 服务端强制使用的扩展名。
+// 扩展名一律由这张白名单映射得出，绝不使用客户端提供的 originalname，
+// 否则可以上传 x.php 这类可执行文件落到静态目录下。
+const MIME_EXT_MAP = {
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+  "image/pjpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+};
+
+// 文件头魔数，用于确认内容真的是图片（mimetype 由客户端控制，不可信）
+const IMAGE_SIGNATURES = [
+  { ext: ".jpg", offset: 0, bytes: [0xff, 0xd8, 0xff] },
+  { ext: ".png", offset: 0, bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  { ext: ".gif", offset: 0, bytes: [0x47, 0x49, 0x46, 0x38] },
+  { ext: ".webp", offset: 0, bytes: [0x52, 0x49, 0x46, 0x46] },
+];
+
+function safeImageExt(mimetype) {
+  return MIME_EXT_MAP[String(mimetype || "").toLowerCase()] || "";
+}
+
+function matchesSignature(buffer, signature) {
+  if (!buffer || buffer.length < signature.offset + signature.bytes.length) {
+    return false;
+  }
+  return signature.bytes.every(
+    (byte, index) => buffer[signature.offset + index] === byte,
+  );
+}
+
+function detectImageSignature(buffer) {
+  const matched = IMAGE_SIGNATURES.find((item) =>
+    matchesSignature(buffer, item),
+  );
+  if (!matched) {
+    return "";
+  }
+
+  // webp 需要额外确认第 8-11 字节是 "WEBP"
+  if (matched.ext === ".webp") {
+    const isWebp =
+      buffer.length >= 12 &&
+      buffer.toString("ascii", 8, 12) === "WEBP";
+    return isWebp ? matched.ext : "";
+  }
+
+  return matched.ext;
+}
+
 function createDiskStorage(folderName) {
   const targetDir = path.join(env.uploadRoot, folderName);
   ensureDir(targetDir);
@@ -76,19 +170,59 @@ function createDiskStorage(folderName) {
       cb(null, targetDir);
     },
     filename(req, file, cb) {
-      const ext = path.extname(file.originalname || "") || ".jpg";
-      cb(null, `${Date.now()}-${Math.random().toString(16).slice(2, 8)}${ext}`);
+      const ext = safeImageExt(file.mimetype) || ".jpg";
+      // 用密码学随机数而不是 Math.random()：上传目录是公开静态可访问的，
+      // 文件名是唯一的访问凭据，必须做到不可枚举、不可猜测。
+      const random = crypto.randomBytes(12).toString("hex");
+      cb(null, `${Date.now()}-${random}${ext}`);
     },
   });
 }
 
 const imageFileFilter = (req, file, cb) => {
-  if (!/^image\//.test(file.mimetype || "")) {
-    cb(new Error("仅支持上传图片文件"));
+  if (!safeImageExt(file.mimetype)) {
+    cb(new Error("仅支持 jpg / png / webp / gif 格式的图片"));
     return;
   }
   cb(null, true);
 };
+
+/**
+ * 落盘后校验文件头，确认内容确实是图片。
+ * mimetype 与文件名都由客户端控制，只有文件内容无法伪造到能通过魔数校验的程度。
+ * 校验失败立即删除文件，避免脏文件残留在可公开访问的静态目录里。
+ */
+async function verifyUploadedImage(req, res, next) {
+  if (!req.file || !req.file.path) {
+    next();
+    return;
+  }
+
+  try {
+    const handle = await fs.promises.open(req.file.path, "r");
+    let detected = "";
+    try {
+      const buffer = Buffer.alloc(12);
+      const { bytesRead } = await handle.read(buffer, 0, 12, 0);
+      detected = detectImageSignature(buffer.slice(0, bytesRead));
+    } finally {
+      await handle.close();
+    }
+
+    if (!detected) {
+      await fs.promises.unlink(req.file.path).catch(() => {});
+      const error = new Error("文件内容不是有效图片，已拒绝上传");
+      error.statusCode = 400;
+      error.code = "INVALID_IMAGE_CONTENT";
+      next(error);
+      return;
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
 
 const avatarUpload = multer({
   storage: createDiskStorage("avatars"),
@@ -114,7 +248,7 @@ const chatImageUpload = multer({
   fileFilter: imageFileFilter,
 });
 
-router.post("/auth/login", async (req, res, next) => {
+router.post("/auth/login", loginRateLimiter, async (req, res, next) => {
   try {
     const result = await loginWithWechat(req.body || {});
     const token = String(result && result.token ? result.token : "").trim();
@@ -134,7 +268,16 @@ router.post("/auth/login", async (req, res, next) => {
   }
 });
 
+// 诊断接口仅用于本地/测试环境排障。它会回显 openid 片段、环境变量开关等
+// 内部信息，生产环境必须关闭，否则等于给攻击者提供探测便利。
 router.get("/auth/diagnose", async (req, res, next) => {
+  if (env.nodeEnv === "production") {
+    return res.status(404).json({
+      success: false,
+      message: "接口不存在",
+    });
+  }
+
   try {
     const token = extractToken(req);
     const authHeader = String(req.headers.authorization || "");
@@ -189,10 +332,11 @@ router.use(authMiddleware);
 router.post(
   "/files/avatar",
   avatarUpload.single("file"),
+  verifyUploadedImage,
   async (req, res, next) => {
     try {
       if (!req.file) {
-        throw new Error("未收到上传文件");
+        throw businessError("未收到上传文件");
       }
       success(res, {
         url: `${env.publicBaseUrl}/uploads/avatars/${req.file.filename}`,
@@ -214,6 +358,16 @@ router.get("/users/me", async (req, res, next) => {
   }
 });
 
+// 会话恢复：小程序冷启动时用已保存的 token 校验登录态，避免重新走一次
+// wx.login。这是替代「拿缓存 openid 换 token」的安全做法。
+router.get("/auth/session", async (req, res, next) => {
+  try {
+    success(res, await getSession(req.user.openid));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch("/users/me", async (req, res, next) => {
   try {
     success(res, await updateMe(req.user.openid, req.body || {}));
@@ -230,7 +384,7 @@ router.get("/home", async (req, res, next) => {
   }
 });
 
-router.post("/orders", async (req, res, next) => {
+router.post("/orders", createOrderRateLimiter, async (req, res, next) => {
   try {
     success(res, await createOrder(req.user.openid, req.body || {}));
   } catch (error) {
@@ -326,10 +480,11 @@ router.post("/orders/:id/rate", async (req, res, next) => {
 router.post(
   "/files/order-attachments",
   attachmentUpload.single("file"),
+  verifyUploadedImage,
   async (req, res, next) => {
     try {
       if (!req.file) {
-        throw new Error("未收到上传文件");
+        throw businessError("未收到上传文件");
       }
       success(res, {
         url: `${env.publicBaseUrl}/uploads/order-attachments/${req.file.filename}`,
@@ -346,10 +501,11 @@ router.post(
 router.post(
   "/files/chat-image",
   chatImageUpload.single("file"),
+  verifyUploadedImage,
   async (req, res, next) => {
     try {
       if (!req.file) {
-        throw new Error("未收到上传文件");
+        throw businessError("未收到上传文件");
       }
       success(res, {
         url: `${env.publicBaseUrl}/uploads/chat-images/${req.file.filename}`,
@@ -366,10 +522,11 @@ router.post(
 router.post(
   "/files/delivery-proof",
   proofUpload.single("file"),
+  verifyUploadedImage,
   async (req, res, next) => {
     try {
       if (!req.file) {
-        throw new Error("未收到上传文件");
+        throw businessError("未收到上传文件");
       }
       const task = await uploadDeliveryProof(
         req.user.openid,
@@ -410,7 +567,7 @@ router.get("/wallet", async (req, res, next) => {
   }
 });
 
-router.post("/wallet/withdrawals", async (req, res, next) => {
+router.post("/wallet/withdrawals", withdrawalRateLimiter, async (req, res, next) => {
   try {
     success(
       res,
@@ -433,7 +590,12 @@ router.get("/orders", async (req, res, next) => {
   try {
     success(
       res,
-      await getOrderList(req.user.openid, req.query.status || "all"),
+      await getOrderList(req.user.openid, {
+        status: req.query.status || "all",
+        role: req.query.role || "",
+        page: req.query.page,
+        pageSize: req.query.pageSize,
+      }),
     );
   } catch (error) {
     next(error);
@@ -506,7 +668,10 @@ router.get("/chat/sessions/:sessionId/messages", async (req, res, next) => {
   }
 });
 
-router.post("/chat/sessions/:sessionId/messages", async (req, res, next) => {
+router.post(
+  "/chat/sessions/:sessionId/messages",
+  chatSendRateLimiter,
+  async (req, res, next) => {
   try {
     success(
       res,

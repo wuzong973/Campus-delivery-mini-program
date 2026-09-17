@@ -1,4 +1,5 @@
 const api = require("../../utils/api");
+const util = require("../../utils/util");
 
 const WATCH_START_DELAY_MS = 320;
 const DEV_POLL_INTERVAL_MS = 45000;
@@ -45,7 +46,6 @@ function createDefaultMineData() {
 
 Page({
   data: createDefaultMineData(),
-<<<<<<< HEAD
 
   // 分享给好友：定义本方法后，右上角胶囊菜单才会显示「转发」并支持「复制链接」
   onShareAppMessage() {
@@ -63,18 +63,23 @@ Page({
       query: ""
     };
   },
-=======
->>>>>>> d4066644e00ebcdcbffa7abefb48c49afbb14cc6
 
   onLoad() {
+    // onShow 的全量刷新做节流：快速来回切 tab 时不必每次都打一遍完整请求
+    this.shouldRefreshOnShow = util.createRefreshThrottle();
     this.loadPageData(true);
   },
 
   onShow() {
-    if (this.data.initialized) {
-      this._watchFailureRetries = 0;
+    if (!this.data.initialized) {
+      return;
+    }
+
+    this._watchFailureRetries = 0;
+    this.startNotificationWatch();
+
+    if (this.shouldRefreshOnShow()) {
       this.loadPageData(false);
-      this.startNotificationWatch();
     }
   },
 

@@ -5,6 +5,8 @@ const {
   getProfileState,
   createNotification,
   getCurrentUser,
+  extractCampusArea,
+  businessError,
 } = require("./shared");
 const {
   User,
@@ -18,7 +20,7 @@ const { manualReconcileByOrderNo } = require("./paymentService");
 async function ensureAdmin(openid) {
   const user = await getCurrentUser(openid);
   if (!user || user.role !== "admin") {
-    throw new Error("当前用户没有管理员权限");
+    throw businessError("当前用户没有管理员权限");
   }
   return user;
 }
@@ -105,6 +107,9 @@ async function getDashboard(openid) {
         item.runnerOpenId && userMap[item.runnerOpenId]
           ? userMap[item.runnerOpenId].nickname
           : "暂无",
+      campusAreaText:
+        item.campusAreaText ||
+        extractCampusArea(item.pickupAddress || item.deliveryAddress),
       deliveryAddress: item.deliveryAddress,
       createdAtText: formatTime(item.createdAt),
     })),
@@ -130,14 +135,14 @@ async function auditWithdrawal(openid, withdrawalId, decision) {
   await ensureAdmin(openid);
   const withdrawal = await Withdrawal.findById(withdrawalId).lean();
   if (!withdrawal) {
-    throw new Error("提现单不存在");
+    throw businessError("提现单不存在");
   }
   if (withdrawal.status !== "pending") {
-    throw new Error("该提现单已处理");
+    throw businessError("该提现单已处理");
   }
   const user = await getCurrentUser(withdrawal.userOpenId);
   if (!user) {
-    throw new Error("提现用户不存在");
+    throw businessError("提现用户不存在");
   }
 
   if (decision === "approve") {

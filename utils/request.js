@@ -166,6 +166,7 @@ function shouldRetryAuth(error, options) {
     error.code === "AUTH_EXPIRED" &&
     options &&
     options.url !== "/auth/login" &&
+    !options.skipAuthRetry &&
     !options.__retryAfterAuth
   );
 }

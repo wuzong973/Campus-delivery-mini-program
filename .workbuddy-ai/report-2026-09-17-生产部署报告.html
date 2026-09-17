@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>校园代拿 · 生产部署报告</title>
+<style>
+  :root{
+    --bg:#0f1419;--panel:#171d26;--panel2:#1e2632;--line:#2b3543;
+    --fg:#e6edf5;--fg2:#9fb0c4;--fg3:#6b7d93;
+    --red:#f09595;--redbg:#3a1c1c;--amber:#ef9f27;--amberbg:#33290f;
+    --green:#97c459;--greenbg:#1e2c10;--blue:#85b7eb;--bluebg:#12283f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.75}
+  .wrap{max-width:1000px;margin:0 auto;padding:48px 24px 90px}
+  h1{font-size:26px;font-weight:600;margin:0 0 6px}
+  .sub{color:var(--fg2);font-size:14px;margin-bottom:22px}
+  h2{font-size:19px;font-weight:600;margin:50px 0 8px;padding-left:12px;
+    border-left:3px solid var(--blue)}
+  h2.warn{border-left-color:var(--amber)}
+  h2.ok{border-left-color:var(--green)}
+  .tip{color:var(--fg3);font-size:13px;margin:0 0 16px 15px}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0 8px}
+  .stat{background:var(--panel2);border-radius:10px;padding:12px 18px;flex:1;min-width:120px}
+  .stat-v{font-size:21px;font-weight:600;color:var(--fg)}
+  .stat-l{font-size:12px;color:var(--fg3);margin-top:2px}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px 22px;margin:14px 0}
+  .item.warn{border-color:#4a3a10;background:var(--amberbg)}
+  .item.ok{border-color:#33501b;background:var(--greenbg)}
+  .item.info{border-color:#2f4a6b;background:var(--bluebg)}
+  .hd{font-size:16px;font-weight:600;margin-bottom:8px}
+  .item.warn .hd{color:var(--amber)} .item.ok .hd{color:var(--green)}
+  .item.info .hd{color:var(--blue)}
+  code{background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--amber)}
+  .fp{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--blue)}
+  pre{background:rgba(0,0,0,.28);border-radius:8px;padding:14px 16px;overflow-x:auto;
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--fg2);
+    line-height:1.65;margin:10px 0}
+  pre b{color:var(--red);font-weight:600}
+  pre i{color:var(--green);font-style:normal}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--fg3);font-size:12.5px;font-weight:600}
+  td{color:var(--fg2)} td:first-child{color:var(--fg)}
+  .ok-mark{color:var(--green);font-weight:600}
+  ul{color:var(--fg2);padding-left:22px} li{margin:7px 0}
+  li b{color:var(--fg)}
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);
+    color:var(--fg3);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>校园代拿 · 生产部署报告</h1>
+<div class="sub">目标服务器 <code>101.35.46.146</code> · OpenCloudOS 9.4 · 宝塔面板 + PM2 + nginx · 2026-09-17</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-v">12</div><div class="stat-l">上传文件</div></div>
+  <div class="stat"><div class="stat-v">17/17</div><div class="stat-l">验证通过</div></div>
+  <div class="stat"><div class="stat-v">2</div><div class="stat-l">备份点</div></div>
+  <div class="stat"><div class="stat-v">0</div><div class="stat-l">服务中断</div></div>
+</div>
+
+<h2 class="warn">部署前的一次关键拦截</h2>
+
+<div class="item warn">
+  <div class="hd">⚠ 线上 app.js 含有仓库里没有的 WebSocket 功能</div>
+  <p>按惯例「上传前先比对远端与本地基线」时发现，<span class="fp">src/app.js</span>
+  与 git 仓库的版本**并不一致**：</p>
+  <pre>const http = require("http");
+const WebSocket = require("ws");
+
+const app = express();
+<b>const server = http.createServer(app);        ← 线上独有</b>
+<b>const wss = new WebSocket.Server({ server });  ← 线上独有</b>
+<b>wss.on("connection", ...)                      ← 线上独有</b>
+
+<b>module.exports = server;                       ← 导出 http.Server 而非 app</b></pre>
+  <p>这意味着：<b>如果按原计划直接覆盖上传，线上实时消息推送功能会当场消失</b>，
+  而且不会有任何报错 —— 替换后的代码本身是合法可运行的，只是少了一整块功能。
+  同时 <span class="fp">src/server.js</span> 依赖导出的是 <code>http.Server</code>，
+  改成导出 express app 也会连带出问题。</p>
+  <p><b>处理方式</b>：把 WebSocket 段完整合并进安全加固版本，保留
+  <code>http.createServer</code> 与 <code>module.exports = server</code>；
+  并把 <code>ws: ^8.20.0</code> 补进 <code>server/package.json</code>，
+  使本地仓库与生产环境保持一致。合并后本地跑加载测试，确认导出类型正确才上传。</p>
+</div>
+
+<div class="item warn">
+  <div class="hd">⚠ 线上 env.js 把微信 AppSecret 硬编码成了兜底值</div>
+  <p>线上 <span class="fp">src/config/env.js</span> 里 <code>WECHAT_APP_SECRET</code>
+  有一份写死在代码中的默认值，与仓库版本不同。已确认线上 <code>.env</code> 中该变量配置正确，
+  因此移除这个兜底是安全的。</p>
+  <p><b>建议</b>：该密钥长期以明文存在于服务器代码文件中（且可能在备份、快照中留痕），
+  建议按「已泄露」处理并轮换。具体值未记录在任何报告或脚本中。</p>
+</div>
+
+<h2>部署流程</h2>
+
+<div class="item info">
+  <div class="hd">七个步骤，每步都可回滚</div>
+  <table>
+  <tr><th>步骤</th><th>动作</th><th>结果</th></tr>
+  <tr><td>1</td><td>环境勘察（只读）</td>
+      <td>PM2 应用名 <code>my-api</code>；部署目录 <code>/www/wwwroot/wzl136122.cn/server</code>；Node v24.14.1</td></tr>
+  <tr><td>2</td><td>比对远端与 git 基线</td>
+      <td class="ok-mark">拦截了 WebSocket 覆盖风险（见上）</td></tr>
+  <tr><td>3</td><td>备份</td>
+      <td><code>/root/backup-campus-server-20260917-092547</code>（188K）</td></tr>
+  <tr><td>4</td><td>上传到 /tmp → 语法预检 → 安装</td>
+      <td class="ok-mark">12 个文件，<code>node --check</code> 全通过后才落盘</td></tr>
+  <tr><td>5</td><td>PM2 重启</td>
+      <td class="ok-mark">status online，健康检查正常</td></tr>
+  <tr><td>6</td><td>nginx 补安全头</td>
+      <td class="ok-mark"><code>nginx -t</code> 通过后 reload；备份 <code>/root/backup-nginx-wzl136122-20260917-092905.conf</code></td></tr>
+  <tr><td>7</td><td>上线后验证</td>
+      <td class="ok-mark">17/17 通过</td></tr>
+  </table>
+  <p style="margin-bottom:0">密码仅通过环境变量传入脚本，<b>未写入任何文件</b>；
+  下载的远端文件快照（含线上密钥）已在验证后删除。</p>
+</div>
+
+<h2>一个被顺带修正的严重配置问题</h2>
+
+<div class="item warn">
+  <div class="hd">生产环境此前一直运行在「开发模式」</div>
+  <p>线上 <span class="fp">ecosystem.config.js</span> 中 PM2 明确设置了 <code>NODE_ENV=production</code>，
+  但旧版 <code>env.js</code> 使用 <code>dotenv.config({ override: true })</code>，
+  让 <code>.env</code> 文件里的 <code>development</code> <b>反向覆盖</b>了 PM2 的配置。</p>
+  <p>结果就是：生产服务器实际以开发模式运行，而这一点从外部完全看不出来。</p>
+  <p><b>修复后验证</b>：本次部署前已先确认线上 <code>JWT_SECRET</code> 为 40 位且非内置默认值
+  （否则新的「生产环境缺失密钥即拒绝启动」校验会导致服务起不来）。
+  上线后用 <code>/api/auth/diagnose</code> 作为观测点 —— 该接口在生产模式返回 404，
+  实测 <b>HTTP 404</b>，证明 production 模式真正生效。</p>
+</div>
+
+<h2 class="ok">上线后验证结果（17/17）</h2>
+
+<table>
+<tr><th>分组</th><th>验证项</th><th>结果</th></tr>
+<tr><td rowspan="2">账号接管链</td>
+    <td>裸 openid 登录被拒绝（原漏洞）</td>
+    <td class="ok-mark">HTTP 400 MISSING_LOGIN_CREDENTIALS</td></tr>
+<tr><td>缺少 code 时返回 400</td><td class="ok-mark">HTTP 400</td></tr>
+
+<tr><td rowspan="2">会话恢复接口</td>
+    <td>无 token 访问 <code>/auth/session</code></td>
+    <td class="ok-mark">HTTP 401</td></tr>
+<tr><td>伪造 token 被拒绝</td><td class="ok-mark">HTTP 401</td></tr>
+
+<tr><td>诊断接口</td><td>生产环境返回 404</td><td class="ok-mark">HTTP 404（证明生产模式生效）</td></tr>
+
+<tr><td rowspan="4">安全响应头</td>
+    <td><code>X-Content-Type-Options: nosniff</code></td><td class="ok-mark">已设置</td></tr>
+<tr><td><code>X-Frame-Options</code></td><td class="ok-mark">已设置</td></tr>
+<tr><td><code>Referrer-Policy</code></td><td class="ok-mark">已设置</td></tr>
+<tr><td>已移除 <code>X-Powered-By</code></td><td class="ok-mark">已移除</td></tr>
+
+<tr><td>限流</td><td>返回 RateLimit 响应头</td>
+    <td class="ok-mark">Limit 1200/分钟</td></tr>
+
+<tr><td rowspan="2">敏感信息</td>
+    <td>受保护接口拒绝非法 token</td><td class="ok-mark">HTTP 401</td></tr>
+<tr><td>错误响应不含堆栈</td><td class="ok-mark">仅返回提示文案</td></tr>
+
+<tr><td>业务可用性</td><td>健康检查</td><td class="ok-mark">正常</td></tr>
+
+<tr><td>线上特有功能</td><td>WebSocket 升级握手</td>
+    <td class="ok-mark">HTTP 101（合并后功能保留）</td></tr>
+
+<tr><td>域名链路</td><td>HTTPS + 反向代理</td><td class="ok-mark">正常</td></tr>
+
+<tr><td rowspan="2">上传目录</td>
+    <td>已上传图片可正常访问</td><td class="ok-mark">HTTP 200</td></tr>
+<tr><td>带 <code>nosniff</code> 安全头</td><td class="ok-mark">已生效</td></tr>
+</table>
+
+<p style="color:var(--fg2)">另：本地与线上 7 个关键文件 <code>md5</code> <b>完全一致</b>，
+确认部署内容无偏差。</p>
+
+<h2 class="warn">需要你处理的事项</h2>
+
+<div class="item warn">
+  <div class="hd">1. 小程序前端需要重新上传（重要）</div>
+  <p>本次修改了客户端代码，但小程序前端<b>无法通过 SSH 部署</b>，需要你在微信开发者工具里
+  点「上传」发布新版本：</p>
+  <ul>
+    <li><b>会话恢复方式变更</b>：<code>utils/auth.js</code> 改为调用
+    <code>GET /auth/session</code> 校验 token，不再把缓存的 openid 送去换 token</li>
+    <li>订单列表分页、防连点锁、提现校验、聊天轮询退避等前端修复</li>
+    <li>分享能力、暗色模式样式、图片 <code>mode</code> 等体验改进</li>
+  </ul>
+  <p style="margin-bottom:0"><b>过渡期兼容性</b>：已确认旧客户端在常见路径上仍可正常工作
+  （本地有有效 token 时不会触发裸 openid 请求），因此不会立刻导致存量用户掉线。
+  但完整修复需要重新发布才能生效。</p>
+</div>
+
+<div class="item warn">
+  <div class="hd">2. 建议轮换两个密钥</div>
+  <ul>
+    <li><b><code>WECHAT_APP_SECRET</code></b> —— 曾以明文硬编码在线上代码文件中，且可能进入过备份</li>
+    <li><b><code>JWT_SECRET</code></b> —— 若此前的 <code>.env</code> 曾随小程序代码包分发过</li>
+  </ul>
+  <p style="margin-bottom:0">轮换 <code>JWT_SECRET</code> 会让现有用户的登录态失效（需重新登录一次），
+  建议在低峰期操作。</p>
+</div>
+
+<div class="item ok">
+  <div class="hd">3. 两项日志/安全优化 —— 已完成（第二批部署）</div>
+  <p><b>① 业务错误的 HTTP 状态码与日志分级</b></p>
+  <p>排查日志噪音时发现根因比预想的更深：服务层共 <b>87 处</b> <code>throw new Error(...)</code>，
+  而错误中间件对没有 <code>statusCode</code> 的错误一律按 <b>500</b> 处理 ——
+  于是「余额不足」「请填写收件人姓名」这类正常业务结果全部变成 500 并打全量堆栈，
+  真正的服务异常反而被淹没。</p>
+  <p>处理方式：新增 <code>businessError()</code> 辅助函数，按业务语义推断状态码
+  （含「请重新登录」→ 401、「无权/仅…可」→ 403、「不存在」→ 404，其余 → 400），
+  并对 6 个服务文件做了机械转换。配置缺失、网络失败、数据库异常等**非业务**错误
+  继续用 <code>new Error</code> 保持 500 语义，便于监控区分。</p>
+  <p>错误中间件同时改为分级日志：5xx 记录完整堆栈，4xx 只记一行摘要。</p>
+  <p><b>实测效果</b>（重启后触发一次业务错误）：</p>
+  <pre><i># 现在（正确）</i>
+[client-error] 400 POST /api/auth/login - 缺少微信登录 code (MISSING_LOGIN_CREDENTIALS)
+
+<b># 之前（错误）—— 同一个错误会打成</b>
+[server-error] { message: '缺少微信登录 code', statusCode: 500, stack: 'Error: ...' }</pre>
+
+  <p><b>② nginx 移除已废弃的 TLSv1.1</b></p>
+  <p><code>ssl_protocols</code> 从 <code>TLSv1.1 TLSv1.2 TLSv1.3</code> 收紧为
+  <code>TLSv1.2 TLSv1.3</code>。实测：TLS 1.1 握手被服务器拒绝，1.2 / 1.3 正常。</p>
+  <p style="margin-bottom:0"><b>③ 顺带理顺 <code>.env</code> 的 NODE_ENV</b>：
+  改为 <code>production</code>，与 PM2 的 <code>ecosystem.config.js</code> 保持一致，
+  避免后续维护时产生「文件里写的是 development」的误解。</p>
+</div>
+
+<div class="item info">
+  <div class="hd">第二批部署验证</div>
+  <table>
+  <tr><th>项目</th><th>结果</th></tr>
+  <tr><td>完整回归验证（17 项）</td><td class="ok-mark">全部通过</td></tr>
+  <tr><td>业务错误日志分级</td><td class="ok-mark">实测 <code>[client-error]</code>，无堆栈</td></tr>
+  <tr><td>业务错误不再误记为服务端故障</td><td class="ok-mark">确认无 <code>[server-error]</code></td></tr>
+  <tr><td>TLS 1.1 已禁用</td><td class="ok-mark">握手被拒绝</td></tr>
+  <tr><td>TLS 1.2 / 1.3 仍可用</td><td class="ok-mark">正常</td></tr>
+  <tr><td>WebSocket 功能未受影响</td><td class="ok-mark">握手 101</td></tr>
+  <tr><td>本地与线上文件 md5</td><td class="ok-mark">8 个文件完全一致</td></tr>
+  </table>
+</div>
+
+<h2>回滚方式</h2>
+
+<div class="item">
+  <div class="hd">如果发现问题，两条命令即可还原</div>
+  <pre><i># 回滚后端代码</i>
+cp -a /root/backup-campus-server-20260917-092547/src/. \
+      /www/wwwroot/wzl136122.cn/server/src/
+pm2 restart my-api
+
+<i># 回滚 nginx 配置</i>
+cp /root/backup-nginx-wzl136122-20260917-092905.conf \
+   /www/server/panel/vhost/nginx/wzl136122.cn.conf
+/www/server/nginx/sbin/nginx -t && /www/server/nginx/sbin/nginx -s reload</pre>
+</div>
+
+<footer>
+  部署脚本保存在 <code>.workbuddy-ai/deploy/</code>，可重复执行（幂等）。
+  该流程已沉淀为技能 <code>safe-server-deploy</code>，含比对 / 备份 / 上传 / 验证四段脚本。<br>
+  密码全程仅通过环境变量传入，未落盘；远端文件快照（含线上密钥）已在验证后删除。
+</footer>
+
+</div>
+</body>
+</html>

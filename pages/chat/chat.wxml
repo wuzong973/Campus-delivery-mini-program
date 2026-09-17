@@ -13,7 +13,7 @@
       bindtap="openSession"
     >
       <view class="session-main">
-        <image
+        <image mode="aspectFill"
           class="avatar-circle avatar-small"
           wx:if="{{item.targetUser && item.targetUser.avatarUrl}}"
           src="{{item.targetUser.avatarUrl}}"

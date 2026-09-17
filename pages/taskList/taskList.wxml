@@ -67,7 +67,7 @@
 
       <view class="row-between task-bottom">
         <view class="publisher-wrap">
-          <image class="avatar-circle avatar-small" src="{{item.publisher.avatarUrl}}" wx:if="{{item.publisher.avatarUrl}}"></image>
+          <image mode="aspectFill" class="avatar-circle avatar-small" src="{{item.publisher.avatarUrl}}" wx:if="{{item.publisher.avatarUrl}}"></image>
           <view class="avatar-circle avatar-small theme-{{item.publisher.avatarTheme}}" wx:else>{{item.publisher.avatarText}}</view>
           <view>
             <text class="publisher-name">{{item.publisher.nickname}}</text>

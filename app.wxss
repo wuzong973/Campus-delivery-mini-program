@@ -334,3 +334,6 @@ textarea {
 .action-row > button {
   flex: 1;
 }
+
+/* 暗色模式适配（开发者工具生成，@media prefers-color-scheme: dark 内生效） */
+@import "./app-wxa-auto-dark.wxss";

@@ -31,8 +31,10 @@ App({
 
   onLaunch() {
     auth.initCloud();
-    const cachedOpenid = auth.getOpenId();
-    const loginPromise = auth.login(false, null, cachedOpenid);
+
+    // 会话恢复统一交给 auth 层处理：有本地 token 就先向服务端校验有效性，
+    // 失效则自动回退到 wx.login。不再把缓存的 openid 直接送去换 token。
+    const loginPromise = auth.ensureLogin();
     this.globalData.readyPromise = loginPromise;
 
     loginPromise
@@ -47,6 +49,23 @@ App({
     this.pollUnreadCount();
   },
 
+  // 回到前台恢复未读轮询
+  onShow() {
+    this.pollUnreadCount();
+  },
+
+  // 退到后台停止轮询，避免长期空转消耗流量与电量
+  onHide() {
+    this.stopUnreadCountPolling();
+  },
+
+  stopUnreadCountPolling() {
+    if (this._unreadPollTimer) {
+      clearInterval(this._unreadPollTimer);
+      this._unreadPollTimer = null;
+    }
+  },
+
   pollUnreadCount() {
     const api = require("./utils/api");
 
@@ -54,6 +73,14 @@ App({
     const POLL_INTERVAL_MS = 15000;
 
     const doPoll = () => {
+      // 聊天列表页自己会以更高的频率刷新同一个接口，
+      // 这里跳过以避免同一接口被两个定时器同时轮询、请求量翻倍。
+      const pages = getCurrentPages();
+      const current = pages[pages.length - 1];
+      if (current && current.route === "pages/chat/chat") {
+        return;
+      }
+
       api
         .getChatSessions()
         .then((data) => {
@@ -72,12 +99,16 @@ App({
           }
         })
         .catch((err) => {
-          console.error("poll unread count failed", err);
+          // 后台轮询失败保持静默，不要打扰用户
+          console.warn("poll unread count failed", err);
         });
     };
 
-    setInterval(doPoll, POLL_INTERVAL_MS);
+    // 重复调用时先清掉旧定时器，防止出现多个并行的轮询
+    this.stopUnreadCountPolling();
+
     doPoll();
+    this._unreadPollTimer = setInterval(doPoll, POLL_INTERVAL_MS);
   },
 
   globalData: {

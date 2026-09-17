@@ -130,3 +130,6 @@
   font-size: 22rpx;
   color: #98a5bd;
 }
+
+/* 暗色模式适配（@media prefers-color-scheme: dark 内生效） */
+@import "./mine-wxa-auto-dark.wxss";

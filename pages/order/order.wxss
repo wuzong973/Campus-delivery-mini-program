@@ -193,3 +193,14 @@
   height: 80rpx;
   line-height: 80rpx;
 }
+
+/* 分页加载状态提示 */
+.load-more {
+  padding: 28rpx 0 8rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #90a0ba;
+}
+
+/* 暗色模式适配（@media prefers-color-scheme: dark 内生效） */
+@import "./order-wxa-auto-dark.wxss";

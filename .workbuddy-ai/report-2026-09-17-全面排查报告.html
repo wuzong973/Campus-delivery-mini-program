@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>校园代拿小程序 · 全面问题排查报告</title>
+<style>
+  :root{
+    --bg:#0f1419;--panel:#171d26;--panel2:#1e2632;--line:#2b3543;
+    --fg:#e6edf5;--fg2:#9fb0c4;--fg3:#6b7d93;
+    --p0:#f09595;--p0bg:#3a1c1c;--p1:#ef9f27;--p1bg:#33290f;
+    --p2:#85b7eb;--p2bg:#12283f;--p3:#9fb0c4;--p3bg:#1e2632;
+    --green:#97c459;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.75}
+  .wrap{max-width:1000px;margin:0 auto;padding:48px 24px 90px}
+  h1{font-size:26px;font-weight:600;margin:0 0 6px}
+  .sub{color:var(--fg2);font-size:14px;margin-bottom:14px}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:32px;font-size:13px}
+  .legend span{padding:4px 12px;border-radius:20px;font-weight:600}
+  h2{font-size:19px;font-weight:600;margin:52px 0 6px;padding-left:12px}
+  h2.p0{border-left:3px solid var(--p0)} h2.p1{border-left:3px solid var(--p1)}
+  h2.p2{border-left:3px solid var(--p2)} h2.p3{border-left:3px solid var(--p3)}
+  .tip{color:var(--fg3);font-size:13px;margin:0 0 18px 15px}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px 22px;margin:14px 0}
+  .item.p0{border-color:#5c2b2b;background:var(--p0bg)}
+  .item.p1{border-color:#4a3a10;background:var(--p1bg)}
+  .item.p2{border-color:#2f4a6b;background:var(--p2bg)}
+  .item.p3{background:var(--p3bg)}
+  .hd{font-size:16px;font-weight:600;margin-bottom:4px}
+  .tags{margin-bottom:10px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;
+    margin-right:6px;font-weight:600;background:rgba(255,255,255,.08);color:var(--fg2)}
+  .tag.sec{background:#5c2b2b;color:var(--p0)}
+  .tag.money{background:#6b2f4a;color:#f4a0c0}
+  .tag.logic{background:#2f4a6b;color:var(--p2)}
+  .tag.perf{background:#33501b;color:var(--green)}
+  .tag.comp{background:#4a3a10;color:var(--p1)}
+  .tag.err{background:#2f2f4a;color:#b0aef0}
+  dl{margin:0}
+  dt{color:var(--fg3);font-size:12px;font-weight:600;margin-top:12px;
+    text-transform:none;letter-spacing:.02em}
+  dd{margin:3px 0 0;color:var(--fg2)}
+  dd b{color:var(--fg);font-weight:600}
+  code{background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--p1)}
+  .fp{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--p2)}
+  .chain{background:rgba(0,0,0,.25);border-radius:8px;padding:12px 16px;
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px;
+    color:var(--fg2);margin:10px 0;line-height:1.9}
+  .chain b{color:var(--p0)}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--fg3);font-size:12.5px;font-weight:600}
+  td{color:var(--fg2)}
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);
+    color:var(--fg3);font-size:13px}
+  .num{display:inline-block;min-width:26px;height:26px;line-height:26px;
+    text-align:center;border-radius:50%;background:rgba(255,255,255,.1);
+    font-size:13px;font-weight:600;margin-right:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>校园代拿小程序 · 全面问题排查报告</h1>
+<div class="sub">范围：小程序前端（pages / utils / app.*）+ 服务端（server/src）+ 部署配置 · 2026-09-17</div>
+
+<div class="legend">
+  <span style="background:var(--p0bg);color:var(--p0)">P0 致命 · 6 项</span>
+  <span style="background:var(--p1bg);color:var(--p1)">P1 严重 · 6 项</span>
+  <span style="background:var(--p2bg);color:var(--p2)">P2 中等 · 8 项</span>
+  <span style="background:var(--p3bg);color:var(--p3)">P3 轻微 · 8 项</span>
+</div>
+
+<div class="item p0">
+  <div class="hd" style="color:var(--p0)">⚠ 最危险的一条攻击链</div>
+  <div class="chain">
+    <b>①</b> 访问 <code>GET /api/tasks</code>（接单大厅，任意登录用户可访问）<br>
+    &nbsp;&nbsp;&nbsp;→ 响应里 <code>publisher</code> 对象带出了每个发布者的 <b>openid</b><br>
+    <b>②</b> 拿任意 openid 直接 <code>POST /api/auth/login {"openid":"..."}</code><br>
+    &nbsp;&nbsp;&nbsp;→ 服务端<b>跳过微信校验</b>，直接签发该用户的 JWT<br>
+    <b>③</b> 用该 JWT 调用任意接口 → <b>接管任意账号</b><br>
+    <b>④</b> 若列表中含管理员 openid → 接管后台，可审批/驳回全部提现
+  </div>
+  <dd>下面 P0-1 与 P0-2 单独看都是弱点，<b>组合起来就是一条完整的、无需任何前置条件的账号接管链</b>。</dd>
+</div>
+
+<h2 class="p0">P0 · 致命（必须立即修复）</h2>
+<div class="tip">可在无授权情况下造成资金损失、数据泄露或服务沦陷</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">1</span>登录接口接受任意 openid，完全跳过微信校验</div>
+  <div class="tags"><span class="tag sec">安全</span><span class="tag money">资金</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><span class="fp">server/src/services/authService.js:69-82</span> —— <code>const directOpenid = String(payload.openid||"").trim()</code>；只要请求体带 <code>openid</code>，就<b>不再调用</b> <code>codeToSession()</code> 做微信侧校验，直接为该 openid 建号/签发 token。</dd>
+    <dd>客户端 <span class="fp">utils/auth.js:99-124</span> 正是走这条路径做「会话恢复」——说明它就在正常业务主链路上，不是废弃代码。</dd>
+    <dt>影响范围</dt>
+    <dd>全站任意账号接管。结合 P0-2 的 openid 泄露，攻击者无需任何密钥即可登录他人账号、查看订单与聊天、发起提现。</dd>
+    <dt>排查方向</dt>
+    <dd>确认生产是否必须保留 directOpenid 通道；若保留，改为<b>校验已有会话签名</b>（如用服务端密钥对 openid 签发短期 ticket），而不是裸传 openid。同时检查网关是否能限制该字段。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">2</span>openid 在公开接口中全量泄露</div>
+  <div class="tags"><span class="tag sec">安全</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><span class="fp">shared.js</span> 的 <code>normalizeUser()</code> 无条件返回 <code>openid</code>；而 <code>enrichOrder()</code> 把 <code>publisher</code> / <code>runner</code> 原样塞进响应。</dd>
+    <dd><code>formatChatSession()</code> 的 <code>currentUser</code> / <code>targetUser</code> 同样如此。</dd>
+    <dd>于是 <code>GET /api/tasks</code>（接单大厅，任何登录用户可访问）会返回每个发布者的 openid。</dd>
+    <dt>影响范围</dt>
+    <dd>为 P0-1 提供弹药，构成完整接管链。管理员若发过单，其 openid 也在此列表中 → 后台沦陷。</dd>
+    <dt>排查方向</dt>
+    <dd>给 <code>normalizeUser</code> 增加一个 <code>publicUser()</code> 变体，只输出 <code>id / nickname / avatarUrl / avatarTheme / avatarText / completedJobs / averageScore</code>；对外接口一律改用该变体。全仓搜索 <code>normalizeUser(</code> 逐个确认。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">3</span>JWT 密钥存在硬编码兜底值，且 role 直接采信 token</div>
+  <div class="tags"><span class="tag sec">安全</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><span class="fp">server/src/config/env.js:45-48</span> —— <code>jwtSecret: trimValue(process.env.JWT_SECRET, "campus-runner-dev-secret")</code>。生产若漏配环境变量，退化为一个公开可知的字符串。</dd>
+    <dd><span class="fp">server/src/middleware/auth.js:22</span> —— 建号时 <code>role: decoded.role || "user"</code>，把 token 里的角色声明当真。</dd>
+    <dt>影响范围</dt>
+    <dd>攻击者可用已知密钥自签 <code>{openid:任意, role:"admin"}</code> 的 token → 直接获得管理员权限，可审批/驳回全部提现、查看全部用户与订单。</dd>
+    <dt>排查方向</dt>
+    <dd>① 生产环境注入 <code>JWT_SECRET</code> 并改为<b>缺失即启动失败</b>（不要有兜底）；② 建号时 role 固定为 <code>"user"</code>，管理员只能由 <code>ADMIN_OPENIDS</code> 白名单或数据库手动授予。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">4</span>.env 位于小程序根目录，会被打进代码包</div>
+  <div class="tags"><span class="tag sec">安全</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd>根目录存在 <code>.env</code>，含 <code>JWT_SECRET</code>、<code>WECHAT_APP_SECRET</code>、<code>MONGODB_URI</code>、<code>ADMIN_OPENIDS</code>、<code>WECHAT_PAY_*</code>。已确认键名清单，未打印任何值。</dd>
+    <dd><span class="fp">project.config.json:5</span> <code>miniprogramRoot: "./"</code>，且 <code>packOptions.ignore: []</code> 未排除任何内容。</dd>
+    <dt>影响范围</dt>
+    <dd>小程序代码包可被反编译，密钥、数据库地址、管理员白名单一次性泄露。</dd>
+    <dt>排查方向</dt>
+    <dd>把 <code>.env</code> 与 <code>server/</code>、<code>cloudfunctions/</code> 加入 <code>packOptions.ignore</code>；更彻底的做法是把小程序源码拆到 <code>miniprogram/</code> 子目录并调整 <code>miniprogramRoot</code>。同时确认已泄露的密钥是否需要轮换。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">5</span>订单结算非幂等，并发完成会重复打款</div>
+  <div class="tags"><span class="tag money">资金</span><span class="tag logic">逻辑</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><code>settleOrderIfNeeded()</code> 是典型的「先查后写」：先 <code>SettlementLog.findById(order._id)</code> 判断是否已结算，然后 <code>$inc</code> 骑手 <code>walletBalance / totalIncome / completedJobs</code>，<b>最后</b>才 upsert 结算日志。</dd>
+    <dd><span class="fp">orderService.js:429-456</span> <code>completeOrder()</code> 同样是先 <code>findById</code> 判状态、再执行结算，无事务包裹。</dd>
+    <dt>影响范围</dt>
+    <dd>两个并发的「确认完成」请求（用户连点、网络重试、前后端重试）都会通过前置检查 → 骑手余额被 <code>$inc</code> 两次，<b>平台真实资金损失</b>。订单量越大、网络越差越容易触发。</dd>
+    <dt>排查方向</dt>
+    <dd>把 upsert 前置并作为唯一闸门：<code>SettlementLog.findOneAndUpdate({_id, status:{$ne:"settled"}}, {$set:{status:"settling",...}}, {upsert:true,new:true})</code>，只有抢到这条记录的请求才继续 <code>$inc</code>；或直接引入 MongoDB 事务 / 用 <code>payStatus+status</code> 做条件 update 并校验 <code>modifiedCount</code>。排查时可用并发脚本重复调用 <code>/orders/:id/complete</code> 复现。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">6</span>取消订单无并发保护，存在重复退款风险</div>
+  <div class="tags"><span class="tag money">资金</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><span class="fp">orderService.js:470-513</span> <code>cancelOrder()</code> 先读订单判状态 → 调 <code>applyRefund()</code> → 最后才 update 状态。<code>applyRefund()</code> 内部虽有二次刷新，但两个并发请求仍可能读到同一份 pre-state。</dd>
+    <dd>全流程无幂等键、无锁、无事务。</dd>
+    <dt>影响范围</dt>
+    <dd>同一订单被重复退款，资金双向损失（用户多收、平台多付）。</dd>
+    <dt>排查方向</dt>
+    <dd>用条件 update 抢占状态（<code>{_id, status:{$in:["pending","accepted"]}}</code> 并校验 <code>modifiedCount===1</code>），只有抢占成功者才继续退款；退款侧以 <code>outRefundNo</code> 做幂等，先查后发。</dd>
+  </dl>
+</div>
+
+<h2 class="p1">P1 · 严重（本周内修复）</h2>
+<div class="tip">会造成错误结果、明显性能退化，或显著扩大攻击面</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">7</span>上传文件扩展名未白名单，可写入任意后缀</div>
+  <div class="tags"><span class="tag sec">安全</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><span class="fp">server/src/routes/api.js:78-80</span> <code>const ext = path.extname(file.originalname || "") || ".jpg"</code> —— <code>originalname</code> 完全由客户端控制。</dd>
+    <dd>唯一的 <code>imageFileFilter</code> 只校验 <code>mimetype</code>，同样是客户端可控字段。</dd>
+    <dt>影响范围</dt>
+    <dd>伪造 <code>Content-Type: image/png</code> + 文件名 <code>x.php</code> 即可落盘 <code>.php</code>。当前 <span class="fp">deploy/nginx/wzl136122.cn.conf</span> 的 <code>location ^~ /uploads/</code> 是纯静态 alias，<b>侥幸</b>阻止了执行——但这属于单点依赖，换环境或改配置即 RCE。</dd>
+    <dd>另外 <code>image/svg+xml</code> 可直接通过过滤，同源静态服务未设 <code>X-Content-Type-Options: nosniff</code> 与 CSP → <b>存储型 XSS</b>。</dd>
+    <dt>排查方向</dt>
+    <dd>改为服务端白名单 <code>['.jpg','.jpeg','.png','.webp']</code> 强制重写扩展名，并用文件魔数（magic bytes）校验真实类型；<code>/uploads/</code> 响应加 <code>X-Content-Type-Options: nosniff</code>、<code>Content-Security-Policy: default-src 'none'</code>。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">8</span>接单竞争未校验修改结果，失败方误报「接单成功」</div>
+  <div class="tags"><span class="tag logic">逻辑</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><span class="fp">orderService.js:352-363</span> 的 <code>updateOne({_id, status:"pending", payStatus:"paid"}, ...)</code> 条件本身是原子的，但<b>代码没有检查 <code>modifiedCount</code></b>，后续照常发通知、返回详情。</dd>
+    <dt>影响范围</dt>
+    <dd>两名骑手同时点击接单：都通过前置校验，只有一条 update 真正命中；未命中方前端仍 toast「接单成功」，但实际未获得订单，且发布者收到两条接单通知。造成纠纷与信任问题。</dd>
+    <dt>排查方向</dt>
+    <dd>取 <code>updateOne</code> 返回值，<code>modifiedCount !== 1</code> 时抛「订单已被其他同学接走」。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">9</span>个人敏感字段全量下发（手机号 / 常用地址）</div>
+  <div class="tags"><span class="tag sec">安全</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><code>normalizeUser()</code> 无条件返回 <code>phone</code>、<code>commonAddress</code>、<code>openid</code>、<code>walletBalance</code>、<code>totalIncome</code>。</dd>
+    <dd>接单大厅把每个发布者的<b>真实手机号与常用地址</b>发给所有登录用户——而前端只用到 <code>publisher.nickname</code>。</dd>
+    <dt>影响范围</dt>
+    <dd>大规模个人信息泄露，违反《个人信息保护法》最小必要原则；可能被用于骚扰、社工。</dd>
+    <dt>排查方向</dt>
+    <dd>与 P0-2 一并处理：对外只输出展示必需字段。注意订单的 <code>contactPhone</code> 已有 <code>canViewContact</code> 保护，说明作者有脱敏意识，只是 <code>normalizeUser</code> 这条路径漏了。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">10</span>CORS 全开 + 无限流 + 无安全响应头</div>
+  <div class="tags"><span class="tag sec">安全</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><span class="fp">server/src/app.js:12</span> <code>app.use(cors())</code> 未限定 origin、未限制 method。</dd>
+    <dd>全站无 rate limit；无 <code>helmet</code>；nginx 未设 <code>X-Content-Type-Options</code> / <code>X-Frame-Options</code> / CSP。</dd>
+    <dt>影响范围</dt>
+    <dd><code>/auth/login</code> 可撞库；下单、提现、发消息可脚本刷量；恶意站点可诱导已登录用户发起跨站请求。</dd>
+    <dt>排查方向</dt>
+    <dd><code>cors({origin: 白名单})</code>；对 <code>/auth/login</code>、<code>/orders</code>、<code>/wallet/withdrawals</code>、聊天发送加 <code>express-rate-limit</code>；补 <code>helmet()</code> 与 nginx 安全头。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">11</span>聊天详情每 4 秒触发一次「历史数据迁移」全表查询</div>
+  <div class="tags"><span class="tag perf">性能</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><span class="fp">pages/chat/detail/detail.js:3</span> <code>POLL_INTERVAL_MS = 4000</code>。</dd>
+    <dd>每次轮询 → <code>getChatMessages()</code> → <code>bindLegacyMessagesToSession()</code>，后者执行 <code>Chat.find({sessionId:{$exists:false/"" /null}, ...})</code> 的 <code>$and</code>+<code>$or</code> 复合查询。</dd>
+    <dt>影响范围</dt>
+    <dd>这是一次性数据迁移逻辑，却常驻在 4 秒一次的热路径上。随 <code>chats</code> 集合增长，该查询会持续拖慢数据库；同时每次轮询还无条件执行 <code>Chat.updateMany</code> + <code>ChatSession.updateOne</code> 两次<b>写</b>操作，即使一条新消息都没有。</dd>
+    <dt>排查方向</dt>
+    <dd>把迁移逻辑拆成一次性脚本（或在会话创建时执行一次并打标记）；轮询接口改为只读，仅在确实有新消息时才写。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">12</span>同一接口被三重定时器叠加轮询</div>
+  <div class="tags"><span class="tag perf">性能</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><span class="fp">app.js:71</span> 全局 15s 轮询 <code>/chat/sessions</code>；<span class="fp">pages/chat/chat.js:3</span> 聊天列表 5s 轮询<b>同一接口</b>；<span class="fp">pages/chat/detail/detail.js:3</span> 聊天详情 4s 轮询消息。</dd>
+    <dt>影响范围</dt>
+    <dd>进入聊天页时两个定时器同时对 <code>/chat/sessions</code> 发请求，请求量翻倍。更糟的是 <code>chat.js</code> 的 <code>catch</code> 每 5 秒弹一次 toast —— <b>断网时会连续刷屏无法操作</b>。</dd>
+    <dt>排查方向</dt>
+    <dd>统一到一个全局轮询源（页面进入时暂停 app 级轮询）；失败时静默退避，不在轮询里弹 toast。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">13</span>主包体积必然超限，无法上传发布</div>
+  <div class="tags"><span class="tag comp">兼容</span><span class="tag perf">性能</span></div>
+  <dl>
+    <dt>具体表现</dt>
+    <dd><code>miniprogramRoot: "./"</code> 导致 <code>cloudfunctions/</code>（68M）、<code>server/</code>（21M）、<code>server.zip</code>（4.9M）、<code>.env</code> 全部被纳入小程序包。</dd>
+    <dd><code>packOptions.ignore: []</code> 未排除任何目录；<code>cloudfunctionRoot: ""</code> 也未按云函数目录特殊处理。</dd>
+    <dd>小程序真正需要的只有 <code>pages/ + utils/ + app.*</code>，实测约 <b>377K</b>。</dd>
+    <dt>影响范围</dt>
+    <dd>主包上限 2MB。当前配置下预览/真机编译极慢，上传大概率直接失败。</dd>
+    <dt>排查方向</dt>
+    <dd>在 <code>packOptions.ignore</code> 中排除 <code>server/**</code>、<code>cloudfunctions/**</code>、<code>server.zip</code>、<code>.env</code>、<code>*.md</code>；或将小程序源码移入独立子目录。</dd>
+  </dl>
+</div>
+
+<h2 class="p2">P2 · 中等（排期修复）</h2>
+<div class="tip">影响稳定性、健壮性或体验，在特定条件下触发</div>
+
+<div class="item p2">
+  <div class="hd"><span class="num">14</span>聊天图片上传链缺 <code>.catch</code></div>
+  <div class="tags"><span class="tag err">异常</span></div>
+  <dd><b>表现</b>：<span class="fp">pages/chat/detail/detail.js:345-359</span> <code>uploadChatImage().then(...).finally(...)</code>，中间没有 <code>catch</code>。<br>
+  <b>影响</b>：上传失败产生未捕获 Promise rejection，用户只看到 loading 消失，无任何提示，且 <code>uploadingImage</code> 状态靠 <code>finally</code> 复位但错误被吞。<br>
+  <b>方向</b>：补 <code>.catch</code> 并 toast 失败原因。</dd>
+</div>
+
+<div class="item p2">
+  <div class="hd"><span class="num">15</span>关键资金操作缺防连点锁</div>
+  <div class="tags"><span class="tag logic">逻辑</span><span class="tag money">资金</span></div>
+  <dd><b>表现</b>：<span class="fp">taskDetail.js:322 handlePay</span>、<code>:414 handleComplete</code>、<code>:458 submitRating</code> 均<b>没有</b> <code>submitting</code> 锁；而同文件的 <code>handleAccept:225</code>、<code>handleCancel:281</code> 有。<br>
+  <b>影响</b>：连点会并发发起支付、重复结算、重复评价。与 P0-5 叠加时正是重复打款的触发条件。<br>
+  <b>方向</b>：三个方法统一加 <code>submitting</code> 闸门。</dd>
+</div>
+
+<div class="item p2">
+  <div class="hd"><span class="num">16</span>全站无分页，无 <code>onReachBottom</code></div>
+  <div class="tags"><span class="tag perf">性能</span></div>
+  <dd><b>表现</b>：全仓搜不到 <code>onReachBottom</code>。<code>getTaskList</code> 硬编码 <code>.limit(50)</code>，<code>getOrderList</code> 返回全量，admin 一次返回 30 用户 + 40 订单。<br>
+  <b>影响</b>：订单页一次性 <code>setData({rawList})</code> 全量订单，数据增长后逼近 <code>setData</code> 1MB 上限并显著拖慢渲染。<br>
+  <b>方向</b>：订单/任务/后台列表改分页 + 上拉加载。</dd>
+</div>
+
+<div class="item p2">
+  <div class="hd"><span class="num">17</span>多个页面在 <code>onShow</code> 发全量请求</div>
+  <div class="tags"><span class="tag perf">性能</span></div>
+  <dd><b>表现</b>：<code>index / order / mine / publish / wallet / admin</code> 均在 <code>onShow</code> 触发完整网络往返 + 全量 <code>setData</code>；<code>mine.js</code> 还叠加启动通知监听。<br>
+  <b>影响</b>：每次切 tab 都卡顿一下，弱网下尤其明显。<br>
+  <b>方向</b>：加「距上次刷新 N 秒内不重复请求」的节流，或改为增量拉取。</dd>
+</div>
+
+<div class="item p2">
+  <div class="hd"><span class="num">18</span><code>taskList.js</code> 缺空值兜底，与 <code>order.js</code> 不一致</div>
+  <div class="tags"><span class="tag err">异常</span></div>
+  <dd><b>表现</b>：<code>loadTasks</code> 中 <code>data.list.reduce(...)</code> 与 <code>rawList: data.list</code> 直接信任后端返回的 <code>list</code>；而 <code>order.js</code> 对应位置有 <code>|| []</code> 保护。<br>
+  <b>影响</b>：后端异常未返回 <code>list</code> 时抛 TypeError，页面白屏且无提示。<br>
+  <b>方向</b>：统一加 <code>(data && data.list) || []</code>。</dd>
+</div>
+
+<div class="item p2">
+  <div class="hd"><span class="num">19</span>提现金额前端校验不严</div>
+  <div class="tags"><span class="tag logic">逻辑</span></div>
+  <dd><b>表现</b>：<span class="fp">wallet.js</span> <code>if (!amount || Number(amount) <= 0)</code> —— 输入 <code>"abc"</code> 时 <code>NaN <= 0</code> 为 <code>false</code>，直接绕过前端校验；也未校验两位小数与余额上限。<br>
+  <b>影响</b>：后端 <code>roundMoney</code> 会拦截，但用户得不到即时反馈，体验割裂。<br>
+  <b>方向</b>：改用 <code>Number.isFinite()</code> 判断，并校验小数位与可提现余额。</dd>
+</div>
+
+<div class="item p2">
+  <div class="hd"><span class="num">20</span>NoSQL 操作符注入面</div>
+  <div class="tags"><span class="tag sec">安全</span></div>
+  <dd><b>表现</b>：<code>ChatSession</code> 更新用 <code>unreadCounts.${currentOpenid}</code> 把 openid 直接拼进 update 路径（<span class="fp">shared.js</span> <code>getChatMessages</code> 中）。<br>
+  <b>影响</b>：openid 可经 P0-1 的 directOpenid 通道由外部控制，且未做字符白名单校验，含 <code>.</code> 或 <code>$</code> 的取值可能改变更新路径语义。<br>
+  <b>方向</b>：对 openid 做 <code>/^[A-Za-z0-9_-]{1,64}$/</code> 校验；或把 <code>unreadCounts</code> 改为数组/子文档避免动态键。</dd>
+</div>
+
+<div class="item p2">
+  <div class="hd"><span class="num">21</span>错误中间件在 development 下回传堆栈</div>
+  <div class="tags"><span class="tag sec">安全</span></div>
+  <dd><b>表现</b>：<span class="fp">server/src/middleware/error.js:32-34</span> <code>NODE_ENV === "development"</code> 时响应体包含 <code>stack</code> 与 <code>detail</code>。<br>
+  <b>影响</b>：生产若误配 <code>NODE_ENV</code>，会泄露服务器绝对路径与代码结构，辅助攻击者构造利用。<br>
+  <b>方向</b>：改为显式白名单（如 <code>DEBUG_ERRORS === "1"</code>），且堆栈只写日志不回传。</dd>
+</div>
+
+<h2 class="p3">P3 · 轻微 / 优化（择机处理）</h2>
+<div class="tip">不阻塞运行，但影响可维护性、体验或长期成本</div>
+
+<table>
+<tr><th>#</th><th>问题</th><th>说明</th></tr>
+<tr><td>22</td><td><code>utils/format.js</code> 为死代码</td><td>全文件零外部引用，且与 <code>business.js</code> 的 <code>formatRelativeTime</code> 重复实现，建议删除</td></tr>
+<tr><td>23</td><td>深色模式样式从未生效</td><td>10 个 <code>*-wxa-auto-dark.wxss</code>（约 700 行）未被 <code>app.wxss</code> <code>@import</code>，等于永不生效</td></tr>
+<tr><td>24</td><td>图片未指定 <code>mode</code></td><td><code>index.wxml:8,123</code>、<code>taskList.wxml:70</code>、<code>mine.wxml:5</code> 等默认 <code>scaleToFill</code> 会拉伸变形；长列表未开 <code>lazy-load</code></td></tr>
+<tr><td>25</td><td>上传超时定时器未清理</td><td><code>utils/api.js:314-318</code> 的 30s <code>setTimeout</code> 从不 <code>clearTimeout</code>，上传成功后仍空转</td></tr>
+<tr><td>26</td><td>中文文案参与权限判断</td><td><code>taskDetail.js</code> 用 <code>=== "接单后可见"</code> 判断，后端一旦改文案即失效，应改用布尔标志位</td></tr>
+<tr><td>27</td><td>前端硬编码商户信息</td><td><code>utils/config.js</code> 硬编码 <code>mchId</code> / <code>serialNo</code> / <code>publicKeyId</code>，应由服务端按需下发</td></tr>
+<tr><td>28</td><td>仍调用已受限的 <code>wx.getUserProfile</code></td><td>已有降级保护，但该接口现在只返回匿名数据，弹窗已无收益；建议改用「头像昵称填写能力」</td></tr>
+<tr><td>29</td><td>上传目录无鉴权</td><td><code>/uploads/</code> 下送达凭证、聊天图片、头像任何人拿到 URL 即可访问，敏感场景建议加签名或临时链接</td></tr>
+</table>
+
+<h2 class="p2">已核实「不是问题」的项</h2>
+<div class="tip">避免误判，排查中已被证伪的怀疑点</div>
+<table>
+<tr><th>怀疑点</th><th>核实结论</th></tr>
+<tr><td><code>chat.wxml</code> 用 <code>wx:key="id"</code> 是否键名错误</td><td>否。<code>formatChatSession()</code> 确实返回 <code>id: session._id</code>，键名正确</td></tr>
+<tr><td>聊天气泡 <code>{{item.timeText}}</code> 是否永远为空</td><td>否。服务端 <code>formatChatMessage()</code> 返回 <code>timeText</code>，前端渲染正常</td></tr>
+<tr><td>定时器是否存在泄漏</td><td>未发现。<code>app.js</code> / <code>mine.js</code> / <code>chat.js</code> / <code>detail.js</code> 的 interval/timeout 均成对清理</td></tr>
+<tr><td>列表点击与内嵌按钮是否冒泡冲突</td><td>未发现。<code>order.wxml</code> 内嵌按钮均用 <code>catchtap</code>，与外层 <code>bindtap</code> 不冲突</td></tr>
+<tr><td>基础库版本是否过低</td><td><code>libVersion</code> 3.15.0（私有配置 3.17.3）足够，未用废弃的 <code>wx.getSystemInfoSync</code></td></tr>
+</table>
+
+<h2 class="p0">建议修复顺序</h2>
+<table>
+<tr><th>批次</th><th>内容</th><th>理由</th></tr>
+<tr><td><b>立即</b></td><td>P0-1、P0-2、P0-3（登录校验 + openid 脱敏 + JWT 密钥）</td><td>三者构成完整接管链，且 P0-1/P0-3 单点即可提权</td></tr>
+<tr><td><b>立即</b></td><td>P0-5、P0-6（结算 / 退款幂等）</td><td>直接造成真实资金损失</td></tr>
+<tr><td><b>当天</b></td><td>P0-4、P1-7（.env 与包体积、上传白名单）</td><td>密钥泄露面广；上传是 RCE/XSS 入口</td></tr>
+<tr><td><b>本周</b></td><td>P1-8 ~ P1-13（接单竞争、字段脱敏、限流、轮询、包体积）</td><td>错误结果与性能退化</td></tr>
+<tr><td><b>排期</b></td><td>P2 全部、P3 全部</td><td>健壮性与可维护性</td></tr>
+</table>
+
+<footer>
+  本报告基于静态代码审计，未执行运行时渗透测试。涉及资金与鉴权的 P0 项建议在测试环境复现后再上生产修复。<br>
+  已确认 <code>.env</code> 含敏感键名但<b>未在报告中记录任何密钥值</b>；若疑有泄露，请直接轮换。
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>校园代拿小程序 · 逐项修复报告</title>
+<style>
+  :root{
+    --bg:#0f1419;--panel:#171d26;--panel2:#1e2632;--line:#2b3543;
+    --fg:#e6edf5;--fg2:#9fb0c4;--fg3:#6b7d93;
+    --p0:#f09595;--p0bg:#3a1c1c;--p1:#ef9f27;--p1bg:#33290f;
+    --p2:#85b7eb;--p2bg:#12283f;--p3:#9fb0c4;--p3bg:#1e2632;
+    --green:#97c459;--greenbg:#1e2c10;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.75}
+  .wrap{max-width:1000px;margin:0 auto;padding:48px 24px 90px}
+  h1{font-size:26px;font-weight:600;margin:0 0 6px}
+  .sub{color:var(--fg2);font-size:14px;margin-bottom:20px}
+  h2{font-size:19px;font-weight:600;margin:52px 0 6px;padding-left:12px}
+  h2.p0{border-left:3px solid var(--p0)} h2.p1{border-left:3px solid var(--p1)}
+  h2.p2{border-left:3px solid var(--p2)} h2.p3{border-left:3px solid var(--p3)}
+  h2.ok{border-left:3px solid var(--green)}
+  .tip{color:var(--fg3);font-size:13px;margin:0 0 18px 15px}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px 22px;margin:14px 0}
+  .item.p0{border-color:#5c2b2b;background:var(--p0bg)}
+  .item.p1{border-color:#4a3a10;background:var(--p1bg)}
+  .item.p2{border-color:#2f4a6b;background:var(--p2bg)}
+  .item.p3{background:var(--p3bg)}
+  .item.ok{border-color:#33501b;background:var(--greenbg)}
+  .hd{font-size:16px;font-weight:600;margin-bottom:8px}
+  .item.p0 .hd{color:var(--p0)} .item.p1 .hd{color:var(--p1)}
+  .item.p2 .hd{color:var(--p2)} .item.ok .hd{color:var(--green)}
+  .num{display:inline-block;min-width:26px;height:26px;line-height:26px;
+    text-align:center;border-radius:50%;background:rgba(255,255,255,.1);
+    font-size:13px;font-weight:600;margin-right:8px}
+  dl{margin:0} dt{color:var(--fg3);font-size:12px;font-weight:600;margin-top:12px}
+  dd{margin:3px 0 0;color:var(--fg2)} dd b{color:var(--fg);font-weight:600}
+  code{background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--p1)}
+  .fp{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--p2)}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--fg3);font-size:12.5px;font-weight:600}
+  td{color:var(--fg2)} td:first-child{color:var(--fg)}
+  .ok-mark{color:var(--green);font-weight:600}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0}
+  .stat{background:var(--panel2);border-radius:10px;padding:12px 18px;flex:1;min-width:130px}
+  .stat-v{font-size:22px;font-weight:600;color:var(--fg)}
+  .stat-l{font-size:12px;color:var(--fg3);margin-top:2px}
+  .warn{background:#33290f;border:1px solid #4a3a10;border-radius:12px;
+    padding:16px 20px;margin:16px 0}
+  .warn .hd{color:var(--p1)}
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);
+    color:var(--fg3);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>校园代拿小程序 · 逐项修复报告</h1>
+<div class="sub">按 P0 → P3 顺序执行 · 覆盖前端 / 服务端 / 部署配置 · 2026-09-17</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-v">48</div><div class="stat-l">变更文件</div></div>
+  <div class="stat"><div class="stat-v">+1617</div><div class="stat-l">新增行</div></div>
+  <div class="stat"><div class="stat-v">-855</div><div class="stat-l">删除行</div></div>
+  <div class="stat"><div class="stat-v">2</div><div class="stat-l">新增模块</div></div>
+  <div class="stat"><div class="stat-v">29/29</div><div class="stat-l">问题已处理</div></div>
+</div>
+
+<h2 class="p0">P0 · 致命问题（6 项，全部修复）</h2>
+
+<div class="item p0">
+  <div class="hd"><span class="num">1</span>登录接口接受任意 openid，完全跳过微信校验</div>
+  <dl>
+    <dt>修复方式</dt>
+    <dd><span class="fp">server/src/services/authService.js</span> —— <code>loginWithWechat()</code> 现在<b>只接受 <code>code</code></b>，
+    由服务端调用 <code>codeToSession()</code> 向微信换取 openid。裸 <code>openid</code> 通道被彻底移除，
+    并在注释中写明「会话恢复请改用 GET /auth/session，不要回退到裸 openid」。</dd>
+    <dd>新增 <code>GET /auth/session</code>（需鉴权）作为安全的会话恢复入口。</dd>
+    <dt>客户端同步改造</dt>
+    <dd><span class="fp">utils/auth.js</span> 重构为三条清晰路径：
+    <code>loginWithWechatCode()</code>（唯一合法登入方式）、
+    <code>restoreSession()</code>（用已有 token 校验，带 <code>skipAuthRetry</code> 防止 request 层再触发一次登录）、
+    <code>runLogin()</code>（并发去重）。
+    <span class="fp">app.js</span> 启动改为 <code>auth.ensureLogin()</code>，不再传递缓存的 openid。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">2</span>openid / 手机号 / 常用地址在公开接口中泄露</div>
+  <dl>
+    <dt>修复方式</dt>
+    <dd><span class="fp">server/src/services/shared.js</span> 新增 <b><code>publicUser()</code></b>：
+    只输出 <code>id / nickname / avatarUrl / avatarTheme / avatarText / slogan / completedJobs / averageScore / ratingText</code>，
+    不含 openid、手机号、常用地址与钱包收益。</dd>
+    <dd>三处对外下发他人信息的地方全部改用它：
+    <code>enrichOrder()</code> 的 <code>publisher</code> 与 <code>runner</code>、
+    <code>formatChatSession()</code> 的 <code>targetUser</code> 与 <code>currentUser</code>。</dd>
+    <dd><code>normalizeUser()</code> 保留给「本人」场景（<code>/users/me</code>、<code>/mine</code>）。</dd>
+    <dt>效果</dt>
+    <dd>接单大厅不再向所有登录用户广播每个发布者的手机号、常用地址与 openid，P0-1 的攻击链失去弹药。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">3</span>JWT 密钥有硬编码兜底值，且建号时采信 token 里的 role</div>
+  <dl>
+    <dt>修复方式</dt>
+    <dd><span class="fp">server/src/config/env.js</span> 新增 <code>resolveJwtSecret()</code>：
+    生产环境若缺失 <code>JWT_SECRET</code>，<b>或该值仍等于内置的开发默认值</b>，直接抛错拒绝启动；
+    开发环境保留默认值但打印醒目警告。长度不足 32 位也会告警。</dd>
+    <dd><span class="fp">server/src/middleware/auth.js</span> —— 建号时改为
+    <code>role: shouldGrantAdmin(openid) ? "admin" : "user"</code>，只认服务端
+    <code>ADMIN_OPENIDS</code> 白名单，<b>不再读取 <code>decoded.role</code></b>。</dd>
+    <dd>同时新增 openid 格式白名单校验（<span class="fp">src/utils/validate.js</span>），
+    非法字符直接 401，顺带堵住动态键注入面。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">4</span>.env 会被打进小程序代码包</div>
+  <dl>
+    <dt>修复方式</dt>
+    <dd><span class="fp">project.config.json</span> 的 <code>packOptions.ignore</code> 现在排除
+    <code>server/</code>、<code>cloudfunctions/</code>、<code>deploy/</code>、<code>node_modules/</code>、
+    <code>server.zip</code>、<code>.env</code>、<code>package.json</code>、以及 <code>.md/.zip/.pem</code> 后缀。</dd>
+    <dt>附带解决</dt>
+    <dd>这同时修掉了 P1-13 的主包体积问题 —— <code>miniprogramRoot: "./"</code> 原本会把
+    云函数目录（68M）与服务端（21M）一起纳入，而真正需要打包的只有约 <b>377K</b>。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">5</span>订单结算非幂等，并发完成会重复打款</div>
+  <dl>
+    <dt>修复方式（两层防护）</dt>
+    <dd><b>第一层</b>：<span class="fp">orderService.js completeOrder()</span> 用条件 update
+    <code>{_id, runnerOpenId, status:"delivered"}</code> 原子抢占，并校验 <code>modifiedCount</code>，
+    只有抢到的请求才发通知。</dd>
+    <dd><b>第二层</b>：<span class="fp">shared.js settleOrderIfNeeded()</span> 以
+    <code>SettlementLog.status</code> 作为唯一闸门做原子抢占。
+    用 <code>findOneAndUpdate(new:false)</code> 读取更新前的文档判断归属：
+    <code>null</code> = 本次抢到、<code>settled</code> = 已结算直接返回、
+    <code>settling</code> = 另有请求在结算，跳过不动钱。
+    并设 5 分钟 stale 超时，进程崩溃后可补偿结算，不会让订单永远结不了账。</dd>
+    <dd><code>upsertFinanceStats()</code> 同步改为单次原子 <code>$inc + upsert</code>，
+    消除「先查是否存在再 create」的并发重复累加与 _id 冲突。</dd>
+  </dl>
+</div>
+
+<div class="item p0">
+  <div class="hd"><span class="num">6</span>取消订单无并发保护，可能重复退款</div>
+  <dl>
+    <dt>修复方式</dt>
+    <dd><span class="fp">orderService.js cancelOrder()</span> 先原子抢占订单状态
+    （<code>{_id, status:{$in:["pending","accepted"]}}</code> → <code>cancelled</code>，
+    校验 <code>modifiedCount === 1</code>），只有抢占成功者才发起退款。</dd>
+    <dd>新增<b>退款失败回滚</b>：若 <code>applyRefund</code> 抛错，把订单状态恢复为原值并清空
+    <code>cancelledAt</code>，避免出现「已取消但没退款」的悬空状态，用户可重新发起取消。</dd>
+  </dl>
+</div>
+
+<h2 class="p1">P1 · 严重问题（7 项，全部修复）</h2>
+
+<div class="item p1">
+  <div class="hd"><span class="num">7</span>上传文件扩展名未白名单（可写 .php / 传 SVG）</div>
+  <dl>
+    <dt>修复方式（三层）</dt>
+    <dd><b>扩展名由服务端决定</b>：<span class="fp">routes/api.js</span> 用 <code>MIME_EXT_MAP</code>
+    把 mimetype 映射到固定安全扩展名，<b>不再使用客户端的 <code>originalname</code></b>。</dd>
+    <dd><b>内容校验</b>：新增 <code>verifyUploadedImage</code> 中间件，落盘后读取文件头
+    校验魔数（JPEG / PNG / GIF / WEBP），不匹配立即 <code>unlink</code> 并返回 400。
+    mimetype 与文件名都能伪造，只有文件内容伪造不到能通过魔数校验的程度。</dd>
+    <dd><b>nginx 兜底</b>：<span class="fp">deploy/nginx/wzl136122.cn.conf</span> 为 <code>/uploads/</code>
+    补 <code>X-Content-Type-Options: nosniff</code>、<code>Content-Security-Policy: default-src 'none'; sandbox</code>，
+    并对 <code>.php/.phtml/.jsp/.sh/.py</code> 等后缀 <code>deny all</code>。</dd>
+    <dt>附带加固</dt>
+    <dd>文件名随机部分从 <code>Math.random().toString(16).slice(2,8)</code>
+    改为 <code>crypto.randomBytes(12).toString("hex")</code> ——
+    上传目录是公开静态可访问的，文件名是唯一访问凭据，必须不可枚举。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">8</span>接单竞争未校验结果，失败方误报「接单成功」</div>
+  <dl>
+    <dt>修复方式</dt>
+    <dd><code>acceptTask()</code> 取 <code>updateOne</code> 的返回值，
+    <code>modifiedCount !== 1</code> 时抛「手慢了，该订单已被其他同学接走」。
+    发布者也不会再收到两条重复的接单通知。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">9</span>个人敏感字段全量下发</div>
+  <dl>
+    <dd>与 P0-2 同一处修复：<code>publicUser()</code> 统一收敛对外字段，
+    接单大厅不再返回发布者的真实手机号与常用地址。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">10</span>CORS 全开 + 无限流 + 无安全头</div>
+  <dl>
+    <dt>修复方式（零新增依赖）</dt>
+    <dd>考虑到生产服务器重新 <code>npm install</code> 常受网络与权限限制，
+    自行实现 <span class="fp">server/src/middleware/security.js</span>：
+    <code>securityHeaders</code>（nosniff / X-Frame-Options / Referrer-Policy / 移除 X-Powered-By）、
+    <code>createRateLimiter</code>（内存滑动窗口，带自动回收与标准 RateLimit 响应头）、
+    <code>createCorsOriginChecker</code>（小程序请求不带 Origin 故放行，浏览器跨域只认白名单）。</dd>
+    <dd><code>app.set("trust proxy", 1)</code>，使 nginx 之后能取到真实客户端 IP，
+    否则限流会把所有请求算到 nginx 地址上。</dd>
+    <dd>分层限流：全站 300/分钟，登录 20/5分钟，下单 20/10分钟，提现 5/10分钟，发消息 60/分钟。</dd>
+    <dd>新增 <code>CORS_ORIGINS</code> 环境变量（留空即不放行任何浏览器跨域请求）。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">11</span>聊天详情每 4 秒触发一次历史数据迁移全表查询</div>
+  <dl>
+    <dt>修复方式</dt>
+    <dd>排查时发现 <code>ensureChatSession()</code> <b>本来就调用过</b>
+    <code>bindLegacyMessagesToSession()</code>，<code>getChatMessages()</code> 里那次是纯重复。
+    现在只在「会话从未有过任何消息」（<code>!session.lastMessageAt</code>，纯内存判断，无额外查询）
+    时兜底执行一次。</dd>
+    <dd>同时把 <code>Chat.updateMany</code> + <code>ChatSession.updateOne</code> 两次写操作
+    改为<b>仅当 <code>unreadCounts[currentOpenid] > 0</code> 时才执行</b> ——
+    轮询在没有新消息时保持纯读。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">12</span>同一接口被三重定时器叠加轮询</div>
+  <dl>
+    <dt>修复方式</dt>
+    <dd><span class="fp">app.js</span> 的全局轮询在检测到当前页面是聊天列表页时直接跳过
+    （通过 <code>getCurrentPages()</code> 判断 route），消除对 <code>/chat/sessions</code> 的双重轮询。</dd>
+    <dd><span class="fp">chat.js</span> 与 <span class="fp">detail.js</span> 从固定
+    <code>setInterval</code> 改为自调度 <code>setTimeout</code>，支持<b>指数退避</b>
+    （连续失败时 5s → 10s → 20s → 40s，上限 60s），断网时不再持续高频请求。</dd>
+    <dd>轮询失败改为<b>静默</b>（<code>console.warn</code>），只有首次加载和用户主动下拉才弹提示 ——
+    旧实现每 5 秒弹一次 toast，断网时会把屏幕刷满、用户完全无法操作。</dd>
+  </dl>
+</div>
+
+<div class="item p1">
+  <div class="hd"><span class="num">13</span>主包体积必然超限，无法上传</div>
+  <dd>与 P0-4 同一处修复（<code>packOptions.ignore</code>）。</dd>
+</div>
+
+<h2 class="p2">P2 · 中等问题（8 项，全部修复）</h2>
+
+<table>
+<tr><th>#</th><th>问题</th><th>修复</th></tr>
+<tr><td>14</td><td>聊天图片上传链缺 <code>.catch</code></td>
+<td>补上 catch 并 toast 失败原因，不再产生未捕获的 Promise rejection</td></tr>
+<tr><td>15</td><td>资金操作缺防连点锁</td>
+<td><code>handlePay</code> / <code>handleComplete</code> / <code>submitRating</code> 统一加 <code>submitting</code> 闸门 + <code>finally</code> 复位</td></tr>
+<tr><td>16</td><td>无分页，无 <code>onReachBottom</code></td>
+<td>服务端 <code>getOrderList</code> 改为<b>按角色/状态筛选 + 分页</b>；新增 <code>buildOrderCounts()</code> 聚合统计（覆盖全部订单，标签数字不再只算前 100 条）；客户端 <code>order.js</code> 接入 <code>onReachBottom</code> 与「已经到底了」提示</td></tr>
+<tr><td>17</td><td>多页面 <code>onShow</code> 发全量请求</td>
+<td><code>utils/util.js</code> 新增 <code>createRefreshThrottle()</code>，5 个页面接入 3 秒节流，快速切 tab 不再重复打请求</td></tr>
+<tr><td>18</td><td><code>taskList.js</code> 缺空值兜底</td>
+<td>改用 <code>(data &amp;&amp; data.list) || []</code>，并在 catch 中补 <code>initialized/loading</code> 复位，与 <code>order.js</code> 保持一致</td></tr>
+<tr><td>19</td><td>提现金额校验不严</td>
+<td>改用 <code>Number.isFinite()</code>，新增两位小数校验与可提现余额上限校验，提交时传数值而非原始字符串</td></tr>
+<tr><td>20</td><td>NoSQL 操作符注入面</td>
+<td><code>middleware/auth.js</code> 对 token 里的 openid 做白名单格式校验（<code>/^[A-Za-z0-9_-]{1,64}$/</code>），非法即 401，避免 <code>.</code> / <code>$</code> 流入 <code>unreadCounts.&lt;openid&gt;</code> 这类动态路径</td></tr>
+<tr><td>21</td><td>错误中间件回传堆栈</td>
+<td>从 <code>NODE_ENV === "development"</code> 改为必须显式 <code>DEBUG_ERRORS=1</code>，堆栈只写日志不回传</td></tr>
+</table>
+
+<h2 class="p3">P3 · 轻微 / 优化（8 项，全部处理）</h2>
+
+<table>
+<tr><th>#</th><th>问题</th><th>处理</th></tr>
+<tr><td>22</td><td><code>utils/format.js</code> 死代码</td><td>已删除（零引用，且与 <code>business.js</code> 重复实现）</td></tr>
+<tr><td>23</td><td>暗色模式样式从未生效</td><td>按生成器说明在 9 个页面 wxss 与 <code>app.wxss</code> 末尾补上 <code>@import</code>，暗色模式真正可用</td></tr>
+<tr><td>24</td><td>图片未指定 <code>mode</code></td><td>全部头像图片补 <code>mode="aspectFill"</code>，不再拉伸变形</td></tr>
+<tr><td>25</td><td>上传超时定时器未清理</td><td><code>Promise.race(...).finally()</code> 中 <code>clearTimeout</code>，上传成功后不再空转 30 秒</td></tr>
+<tr><td>26</td><td>中文文案参与权限判断</td><td>改为权限位 <code>canViewContact</code> + <code>isPhoneLike()</code> 校验，后端改文案不再导致失效</td></tr>
+<tr><td>27</td><td>前端硬编码商户信息</td><td><code>utils/config.js</code> 移除 <code>mchId</code> / <code>serialNo</code> / <code>publicKeyId</code> 与未使用的 <code>platformName</code> / <code>paymentEnabled</code></td></tr>
+<tr><td>28</td><td>仍调用已受限的 <code>wx.getUserProfile</code></td><td>移除该调用（现在只返回匿名数据，弹窗无收益），直接以 openid 登录；头像昵称由「个人资料」页的 <code>chooseAvatar</code> 采集</td></tr>
+<tr><td>29</td><td>上传目录文件名可枚举</td><td>随机部分改用 <code>crypto.randomBytes(12)</code>（96 位熵），枚举不可行</td></tr>
+</table>
+
+<h2 class="p2">排查中发现并修复的两个额外问题</h2>
+
+<div class="item p2">
+  <div class="hd">A · <code>.env</code> 反向覆盖真实环境变量（部署陷阱）</div>
+  <dl>
+    <dt>问题</dt>
+    <dd><span class="fp">server/src/config/env.js</span> 原本使用
+    <code>dotenv.config({ override: true })</code>，意味着 <b>.env 文件会覆盖真实环境变量</b>。
+    运维即便在 systemd / Docker 里显式设置了 <code>NODE_ENV=production</code>，
+    也会被文件里的 <code>development</code> 悄悄改回去 ——
+    直接导致生产以开发模式运行，并绕过 JWT_SECRET 的强制校验。</dd>
+    <dt>修复</dt>
+    <dd>改为 <code>override: false</code>，真实环境变量优先（符合 12-factor 原则）。</dd>
+    <dt>验证</dt>
+    <dd>已实测：设置 <code>NODE_ENV=production JWT_SECRET=...</code> 后，
+    <code>nodeEnv</code> 正确读为 <code>production</code>，密钥取自环境变量而非文件。</dd>
+  </dl>
+</div>
+
+<div class="item p2">
+  <div class="hd">B · <code>$set</code> 中包含不可变的 <code>_id</code>（修复过程中自查发现）</div>
+  <dl>
+    <dt>问题</dt>
+    <dd>重写结算逻辑时，收尾更新误把 <code>_id</code> 放进了 <code>$set</code>。
+    MongoDB 不允许修改 <code>_id</code>，会直接报
+    <em>"Performing an update on the path '_id' would modify the immutable field '_id'"</em>，
+    导致结算永远失败。</dd>
+    <dt>修复</dt>
+    <dd>抽出 <code>settlementFields</code>（不含 <code>_id</code>），
+    <code>_id</code> 只出现在查询条件里；同时避免 <code>$set</code> 与 <code>$setOnInsert</code> 字段重叠。</dd>
+  </dl>
+</div>
+
+<h2 class="ok">验证结果</h2>
+
+<table>
+<tr><th>检查项</th><th>结果</th></tr>
+<tr><td>小程序端 JS 语法</td><td class="ok-mark">全部通过</td></tr>
+<tr><td>服务端 JS 语法</td><td class="ok-mark">全部通过</td></tr>
+<tr><td>静态体检（冲突标记 / 绑定 / this 调用 / 标签 / 配置）</td><td class="ok-mark">未发现问题</td></tr>
+<tr><td>wxml 标签配对</td><td class="ok-mark">全部正常</td></tr>
+<tr><td>JSON 配置合法性</td><td class="ok-mark">全部合法</td></tr>
+<tr><td>页面文件完整性</td><td class="ok-mark">12 页面 × 4 文件齐全</td></tr>
+<tr><td>tabBar 与 pages 一致性</td><td class="ok-mark">一致</td></tr>
+<tr><td>服务端路由注册</td><td class="ok-mark">32 条（含新增 <code>GET /auth/session</code>）</td></tr>
+<tr><td>生产环境缺 JWT_SECRET 拒绝启动</td><td class="ok-mark">已验证拦截</td></tr>
+<tr><td>真实环境变量优先级</td><td class="ok-mark">已验证生效</td></tr>
+<tr><td>Mongo 更新操作符合法性</td><td class="ok-mark">无 <code>_id</code> 误用、无字段冲突</td></tr>
+</table>
+
+<div class="warn">
+  <div class="hd">⚠ 需要你在服务器侧确认的两件事</div>
+  <p style="margin:6px 0 0"><b>1. <code>server/.env</code> 里的 <code>NODE_ENV</code> 仍是 <code>development</code>。</b>
+  建议改为 <code>production</code>。改完后由于新增了强制校验，请确认同一文件里的
+  <code>JWT_SECRET</code> 是一个足够长的随机值（<code>openssl rand -hex 32</code>），
+  否则服务会拒绝启动 —— 这是有意设计，防止用公开默认密钥上线。</p>
+  <p style="margin:10px 0 0"><b>2. 若 <code>.env</code> 曾随代码包分发过，请按「已泄露」处理。</b>
+  本次已在打包配置中排除，但历史版本可能已经上传过。
+  建议轮换 <code>JWT_SECRET</code>、<code>WECHAT_APP_SECRET</code> 与微信支付密钥。</p>
+  <p style="margin:10px 0 0">另外新增了两个可选环境变量：
+  <code>CORS_ORIGINS</code>（浏览器跨域白名单，留空即全部拒绝）与
+  <code>DEBUG_ERRORS</code>（设为 1 才回传错误堆栈，生产务必留空）。
+  完整说明见 <code>server/.env.example</code>。</p>
+</div>
+
+<footer>
+  本轮共修改 48 个文件，新增 2 个模块（<code>middleware/security.js</code>、<code>utils/validate.js</code>），
+  删除 2 个死代码文件。<br>
+  静态体检可随时复跑：<code>python scripts/audit.py &lt;小程序根目录&gt;</code>。
+  建议在开发者工具里点一次「编译」确认 Console 报错归零后再提交。
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>校园代拿小程序 · 报错修复与功能补全报告</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171d26; --panel2:#1e2632; --line:#2b3543;
+    --fg:#e6edf5; --fg2:#9fb0c4; --fg3:#6b7d93;
+    --red:#f09595; --red-bg:#3a1c1c; --amber:#ef9f27; --amber-bg:#33290f;
+    --green:#97c459; --green-bg:#1e2c10; --blue:#85b7eb; --blue-bg:#12283f;
+    --purple:#afa9ec; --purple-bg:#231f3a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.7;}
+  .wrap{max-width:960px;margin:0 auto;padding:48px 24px 80px}
+  h1{font-size:26px;font-weight:600;margin:0 0 8px}
+  .sub{color:var(--fg2);font-size:14px;margin-bottom:36px}
+  h2{font-size:18px;font-weight:600;margin:44px 0 16px;padding-left:12px;
+    border-left:3px solid var(--blue)}
+  h3{font-size:15px;font-weight:600;margin:24px 0 10px;color:var(--fg)}
+  p{margin:10px 0;color:var(--fg2)}
+  code{background:var(--panel2);padding:2px 6px;border-radius:4px;
+    font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--amber)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:20px 22px;margin:14px 0}
+  .card.crit{border-color:#5c2b2b;background:var(--red-bg)}
+  .card.fix{border-color:#33501b;background:var(--green-bg)}
+  .card.note{border-color:#2f4a6b;background:var(--blue-bg)}
+  .badge{display:inline-block;font-size:12px;padding:3px 9px;border-radius:20px;
+    font-weight:600;margin-right:8px;vertical-align:1px}
+  .b-crit{background:#5c2b2b;color:var(--red)}
+  .b-fix{background:#33501b;color:var(--green)}
+  .b-note{background:#2f4a6b;color:var(--blue)}
+  .b-warn{background:#4a3a10;color:var(--amber)}
+  .file{font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--blue)}
+  ul{margin:10px 0;padding-left:22px;color:var(--fg2)}
+  li{margin:7px 0}
+  li strong{color:var(--fg);font-weight:600}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);
+    vertical-align:top}
+  th{color:var(--fg3);font-weight:600;font-size:13px}
+  td{color:var(--fg2)}
+  td:first-child{color:var(--fg);white-space:nowrap}
+  .ok{color:var(--green)}
+  .chain{background:var(--panel2);border-radius:8px;padding:14px 16px;
+    font-family:ui-monospace,Consolas,monospace;font-size:13px;
+    color:var(--fg2);margin:12px 0;line-height:2}
+  .chain b{color:var(--red)}
+  .chain i{color:var(--green);font-style:normal}
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
+    color:var(--fg3);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>校园代拿小程序 · 报错修复与功能补全报告</h1>
+  <div class="sub">项目 <code>campus-runner-miniapp</code> · 工作目录 <code>D:\runner</code> · 2026-09-17</div>
+
+  <div class="card crit">
+    <span class="badge b-crit">根因</span>
+    <strong>你截图里的两条红字报错，其实是同一个根因的连锁反应。</strong>
+    <p style="margin-bottom:0">合并提交 <code>5d6ae07</code> 时留下了<strong>未解决的 Git 冲突标记</strong>，导致 4 个页面 JS 文件语法错误。
+    微信开发者工具的模块加载器 require 到编译失败的模块，于是报「module 未定义」；
+    页面组件构造失败后被降级成占位组件，于是接着报 <code>wx://not-found</code>。</p>
+  </div>
+
+  <div class="chain">
+    冲突标记残留 &nbsp;→&nbsp; <b>4 个 JS 语法错误</b> &nbsp;→&nbsp; <b>module is not defined</b><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↳ <b>wx://not-found</b> &nbsp;→&nbsp; 页面白屏<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↳ <i>清理后恢复</i>
+  </div>
+
+  <h2>一、阻塞级问题（已修复）</h2>
+
+  <h3>1. 4 个文件的 Git 冲突标记</h3>
+  <table>
+    <tr><th>文件</th><th>冲突位置</th><th>处理</th></tr>
+    <tr><td class="file">pages/index/index.js</td><td>第 28 行</td><td>保留含分享方法的分支</td></tr>
+    <tr><td class="file">pages/mine/mine.js</td><td>第 48 行</td><td>保留含分享方法的分支</td></tr>
+    <tr><td class="file">pages/publish/publish.js</td><td>74 / 381 / 398 行（3 处）</td><td>保留含订阅消息集成的完整分支</td></tr>
+    <tr><td class="file">pages/taskDetail/taskDetail.js</td><td>第 281 行</td><td>保留 <code>cancelOrder</code> 分支</td></tr>
+  </table>
+  <div class="card note">
+    <span class="badge b-note">取舍依据</span>
+    旧分支是复制粘贴残留 —— <code>handleCancel</code>（取消订单）里调用的是 <code>api.acceptTask</code>（接单），
+    属于明显错误，已丢弃。冲突解决后还逐个核对了尾部括号是否被标记切开。
+  </div>
+
+  <h3>2. order.js 调用了不存在的方法（订单页永久空白）</h3>
+  <p><span class="file">pages/order/order.js</span> 的 <code>onLoad</code> 调用 <code>this.getUserLocation()</code>，
+  但文件里<strong>根本没有定义这个方法</strong> → 抛 TypeError。更严重的是执行被中断，
+  后面的首次数据加载从未执行，<code>onShow</code> 又写成 <code>if (initialized) load()</code>，
+  首次进入时 <code>initialized</code> 为 false，两边都不加载 —— 订单页永远空白。</p>
+  <p class="ok">✔ 已补上 <code>getUserLocation()</code>，并用 <code>.finally()</code> 串联首次加载（定位失败也不阻断）。</p>
+
+  <h3>3. taskDetail.js 方法重复定义 + 调用不存在的 API</h3>
+  <p><span class="file">pages/taskDetail/taskDetail.js</span> 中 <code>handleCancel</code> 被定义了 <strong>3 次</strong>，
+  前两次调用的是 <code>api.cancelTask</code> —— 而 <code>utils/api.js</code> 只导出了 <code>cancelOrder</code>，
+  <code>cancelTask</code> 并不存在。三个同名方法后者覆盖前者，逻辑隐晦且脆弱。</p>
+  <p class="ok">✔ 已合并为单一定义，统一调用 <code>api.cancelOrder</code>。</p>
+
+  <h2>二、功能补全（已改进）</h2>
+
+  <div class="card fix">
+    <span class="badge b-fix">体验</span><strong>publish.js 资料状态不刷新，导致无法发单</strong>
+    <p style="margin-bottom:0">用户先进入「发布」页（资料未完善）→ 去「个人资料」补全 → 返回发布页，
+    <code>profileState</code> 仍是旧值，<code>validateForm</code> 一直拦住不让发单。
+    已新增 <code>onShow</code> 静默刷新 —— 且<strong>只刷新资料状态、不重置表单</strong>，避免用户切 tab 回来正在填写的内容被清空。</p>
+  </div>
+
+  <div class="card fix">
+    <span class="badge b-fix">体验</span><strong>taskDetail 加载失败即整页白屏</strong>
+    <p style="margin-bottom:0">原来整个页面包在 <code>wx:if="{{task.id}}"</code> 里，没有任何 else 分支。
+    任务加载失败、链接参数丢失时就是一片空白。已补上<strong>加载态</strong>与<strong>空态/错误态</strong>引导，
+    并把「取消订单」按钮从「有接单人就显示」改为受 <code>task.canCancel</code> 权限位约束。</p>
+  </div>
+
+  <div class="card fix">
+    <span class="badge b-fix">体验</span><strong>auth.js 取消授权就完全无法登录</strong>
+    <p style="margin-bottom:0">原来 <code>wx.getUserProfile</code> 失败即中断整个登录流程。
+    实际上登录只依赖 openid，头像昵称可在「个人资料」页补充。
+    已改为<strong>降级登录</strong>：接口不可用或用户拒绝授权时，仍以 openid 完成登录。</p>
+  </div>
+
+  <div class="card fix">
+    <span class="badge b-fix">数据</span><strong>admin 后台枚举值直接渲染英文</strong>
+    <p style="margin-bottom:0">提现状态显示 <code>pending</code>、角色显示 <code>admin</code>、订单状态显示 <code>accepted / paid</code>。
+    已统一中文化（审核中 / 管理员 / 待送达 / 已支付），并补上 <code>totalRunnerIncomeText</code> 默认值；
+    4 个列表全部补了空态；服务端 <code>adminService</code> 补返回 <code>campusAreaText</code>。</p>
+  </div>
+
+  <div class="card fix">
+    <span class="badge b-fix">数据</span><strong>wallet 默认 data 缺字段</strong>
+    <p style="margin-bottom:0">初始 <code>wallet</code> 对象没有 <code>withdrawals</code> 键，首屏取值异常；
+    提现记录也显示英文状态。已补默认空数组，并加入状态中文字典。</p>
+  </div>
+
+  <div class="card fix">
+    <span class="badge b-fix">稳定性</span><strong>app.js 未读轮询后台空转</strong>
+    <p style="margin-bottom:0">15 秒一次的轮询在 <code>onLaunch</code> 启动后永不停止，退到后台仍在跑；
+    且 <code>onLaunch</code> + <code>onShow</code> 可能造成多个并行定时器。
+    已加 <code>onHide</code> 停止 / <code>onShow</code> 恢复，并在启动前清理旧定时器。</p>
+  </div>
+
+  <div class="card fix">
+    <span class="badge b-fix">一致性</span><strong>补齐分享能力与首页刷新</strong>
+    <p style="margin-bottom:0">chat 页与聊天详情页补上 <code>onShareAppMessage</code>（详情页分享时携带会话 id）；
+    首页 <code>onShow</code> 由「什么都不做」改为静默刷新，保证待接任务数等汇总信息不过期。</p>
+  </div>
+
+  <h2>三、校验结果</h2>
+  <table>
+    <tr><th>检查项</th><th>结果</th></tr>
+    <tr><td>冲突标记残留</td><td class="ok">0 处</td></tr>
+    <tr><td>小程序端 JS 语法（<code>node --check</code>）</td><td class="ok">全部通过</td></tr>
+    <tr><td>服务端 JS 语法（<code>server/src</code>）</td><td class="ok">全部通过</td></tr>
+    <tr><td>wxml 事件绑定 ↔ js 处理函数</td><td class="ok">无缺失</td></tr>
+    <tr><td><code>this.Xxx()</code> 调用 ↔ 方法定义</td><td class="ok">无缺失</td></tr>
+    <tr><td>方法重复定义</td><td class="ok">已清零</td></tr>
+    <tr><td>wxml 标签配对</td><td class="ok">全部配对</td></tr>
+    <tr><td>app.json pages ↔ 磁盘文件</td><td class="ok">12 个页面 × 4 文件齐全</td></tr>
+    <tr><td>tabBar ↔ pages 注册</td><td class="ok">5 个 tab 全部一致</td></tr>
+    <tr><td>前后端 API 路径对齐</td><td class="ok">全部匹配</td></tr>
+    <tr><td>全部 JSON 配置合法性</td><td class="ok">合法</td></tr>
+  </table>
+
+  <h2>四、下一步</h2>
+  <ul>
+    <li>在微信开发者工具里点一次<strong>「编译」</strong>，确认 Console 红色报错数归零（应为 <code>0</code>）</li>
+    <li>若 <code>wx://not-found</code> 仍在，再检查 <code>usingComponents</code> 与 <code>custom-tab-bar</code>（当前项目均未使用，预期不会再出现）</li>
+    <li>订阅消息模板 ID 仍是占位符（<span class="file">utils/subscribe.js</span>），
+      代码已做占位检测会安全跳过；需要真正推送时到公众平台申请后替换</li>
+    <li>建议顺手提交一次 commit 固化本次修复，避免冲突标记再次被合并进来</li>
+  </ul>
+
+  <footer>
+    静态体检可随时复跑：<code>python scripts/audit.py &lt;小程序根目录&gt;</code><br>
+    该流程已沉淀为技能 <code>miniprogram-static-audit</code>，一条命令覆盖 5 类高频问题。
+  </footer>
+
+</div>
+</body>
+</html>

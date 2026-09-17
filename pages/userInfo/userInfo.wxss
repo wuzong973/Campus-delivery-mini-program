@@ -71,3 +71,6 @@
   display: flex;
   gap: 18rpx;
 }
+
+/* 暗色模式适配（@media prefers-color-scheme: dark 内生效） */
+@import "./userInfo-wxa-auto-dark.wxss";

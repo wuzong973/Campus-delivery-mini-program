@@ -1,4 +1,5 @@
 const api = require("../../utils/api");
+const util = require("../../utils/util");
 
 function createDefaultHomeData() {
   return {
@@ -25,7 +26,6 @@ function createDefaultHomeData() {
 
 Page({
   data: createDefaultHomeData(),
-<<<<<<< HEAD
 
   // 分享给好友：定义本方法后，右上角胶囊菜单才会显示「转发」并支持「复制链接」
   onShareAppMessage() {
@@ -43,16 +43,18 @@ Page({
       query: ""
     };
   },
-=======
->>>>>>> d4066644e00ebcdcbffa7abefb48c49afbb14cc6
 
   onLoad() {
+    // onShow 的全量刷新做节流：快速来回切 tab 时不必每次都打一遍完整请求
+    this.shouldRefreshOnShow = util.createRefreshThrottle();
     this.loadPageData(true);
   },
 
   onShow() {
-    if (this.data.initialized) {
-      return;
+    // 首次进入由 onLoad 负责加载；之后每次回到首页都静默刷新，
+    // 保证待接任务数、已完成订单数等汇总信息不过期。
+    if (this.data.initialized && this.shouldRefreshOnShow()) {
+      this.loadPageData(false);
     }
   },
 

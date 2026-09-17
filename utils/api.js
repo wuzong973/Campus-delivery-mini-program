@@ -311,13 +311,22 @@ function uploadDeliveryProof(orderId, filePath, note) {
     }),
   );
 
+  let timeoutTimer = null;
+
   const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => {
+    timeoutTimer = setTimeout(() => {
       reject(createError("上传超时，请检查网络后重试。", "UPLOAD_TIMEOUT"));
     }, DELIVERY_UPLOAD_TIMEOUT);
   });
 
-  return Promise.race([uploadPromise, timeoutPromise]);
+  return Promise.race([uploadPromise, timeoutPromise]).finally(() => {
+    // 无论成功、失败还是超时都必须清掉定时器：
+    // 旧实现从不 clearTimeout，上传成功后这个 30 秒的定时器仍会空转并持有闭包引用。
+    if (timeoutTimer) {
+      clearTimeout(timeoutTimer);
+      timeoutTimer = null;
+    }
+  });
 }
 
 function completeOrder(orderId) {
@@ -365,13 +374,26 @@ function getMineData() {
     });
 }
 
-function getOrderList(status) {
+/**
+ * 订单列表（支持服务端筛选 + 分页）
+ * @param {object} [options]
+ * @param {string} [options.status]   all | pending | accepted | completed | cancelled
+ * @param {string} [options.role]     published | accepted | 空表示两者都查
+ * @param {number} [options.page]     页码，从 1 开始
+ * @param {number} [options.pageSize] 每页条数
+ */
+function getOrderList(options) {
+  const params = options || {};
+
   return auth.ensureLogin().then(() =>
     request.request({
       url: "/orders",
       method: "GET",
       data: {
-        status: status || "all",
+        status: params.status || "all",
+        role: params.role || "",
+        page: params.page || 1,
+        pageSize: params.pageSize || 20,
       },
     }),
   );

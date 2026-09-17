@@ -6,7 +6,7 @@
 
   <view class="card profile-preview">
     <button class="avatar-wrapper" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
-      <image class="avatar-image" src="{{ form.avatarUrl || '' }}" wx:if="{{ form.avatarUrl }}"></image>
+      <image mode="aspectFill" class="avatar-image" src="{{ form.avatarUrl || '' }}" wx:if="{{ form.avatarUrl }}"></image>
       <view class="avatar-circle avatar-large theme-{{form.avatarTheme}}" wx:else>
         {{avatarText}}
       </view>

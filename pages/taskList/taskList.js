@@ -114,8 +114,11 @@ Page({
       this.setData({ currentLocation });
       return api.getTaskList({ currentLocation });
     }).then(data => {
+      // 兜底：后端异常未返回 list 时不能让页面崩掉（旧实现直接 data.list.reduce 会抛 TypeError）
+      const list = (data && data.list) || [];
+
       const areas = [{ label: '全部区域', value: 'all' }].concat(
-        data.list.reduce((result, item) => {
+        list.reduce((result, item) => {
           if (!result.find(area => area.value === item.campusAreaText)) {
             result.push({
               label: item.campusAreaText,
@@ -129,13 +132,17 @@ Page({
       this.setData({
         initialized: true,
         loading: false,
-        rawList: data.list,
+        rawList: list,
         filterOptions: Object.assign({}, this.data.filterOptions, {
           areas
         })
       });
-      this.applyFilters(data.list);
+      this.applyFilters(list);
     }).catch(error => {
+      this.setData({
+        initialized: true,
+        loading: false
+      });
       wx.showToast({
         title: error.message || '加载失败',
         icon: 'none'

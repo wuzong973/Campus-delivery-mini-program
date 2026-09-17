@@ -31,7 +31,7 @@
       <view class="card admin-card" wx:for="{{dashboard.withdrawals}}" wx:key="id">
         <view class="row-between">
           <text class="admin-title">{{item.nickname}}</text>
-          <text class="admin-status {{item.status}}">{{item.status}}</text>
+          <text class="admin-status {{item.status}}">{{item.statusText}}</text>
         </view>
         <text class="admin-desc">金额：{{item.amountText}}</text>
         <text class="admin-desc">手机号：{{item.phone}}</text>
@@ -41,6 +41,10 @@
           <button class="ghost-btn" bindtap="auditWithdrawal" data-id="{{item.id}}" data-decision="reject">驳回</button>
         </view>
       </view>
+    </view>
+    <view class="card list-empty" wx:else>
+      <text class="list-empty-title">暂无提现申请</text>
+      <text>用户提交提现申请后会出现在这里。</text>
     </view>
   </view>
 
@@ -53,8 +57,12 @@
       <view class="card admin-card" wx:for="{{dashboard.abnormalLogs}}" wx:key="id">
         <text class="admin-title">{{item.nickname}}</text>
         <text class="admin-desc">{{item.reason}}</text>
-        <text class="admin-meta">{{item.type}} · {{item.createdAtText}}</text>
+        <text class="admin-meta">{{item.typeText}} · {{item.createdAtText}}</text>
       </view>
+    </view>
+    <view class="card list-empty" wx:else>
+      <text class="list-empty-title">暂无异常记录</text>
+      <text>系统未检测到频率异常行为。</text>
     </view>
   </view>
 
@@ -67,12 +75,16 @@
       <view class="card admin-card" wx:for="{{dashboard.users}}" wx:key="id">
         <view class="row-between">
           <text class="admin-title">{{item.nickname}}</text>
-          <text class="admin-status {{item.role}}">{{item.role}}</text>
+          <text class="admin-status {{item.role}}">{{item.roleText}}</text>
         </view>
         <text class="admin-desc">电话：{{item.phoneText}} · 钱包：{{item.walletBalanceText}}</text>
         <text class="admin-desc">收益：{{item.totalIncomeText}} · 资料：{{item.profileStatusText}}</text>
         <text class="admin-meta">评分 {{item.averageScoreText}} · 完成 {{item.completedJobsText}} 单 · {{item.createdAtText}}</text>
       </view>
+    </view>
+    <view class="card list-empty" wx:else>
+      <text class="list-empty-title">暂无用户数据</text>
+      <text>有新用户注册后会展示在这里。</text>
     </view>
   </view>
 
@@ -85,12 +97,16 @@
       <view class="card admin-card" wx:for="{{dashboard.orders}}" wx:key="id">
         <view class="row-between">
           <text class="admin-title">{{item.typeText}} · {{item.rewardText}}</text>
-          <text class="admin-status status-tag">{{item.status}} / {{item.payStatus}}</text>
+          <text class="admin-status status-tag">{{item.statusText}} / {{item.payStatusText}}</text>
         </view>
         <text class="admin-desc">发布者：{{item.publisherName}} · 接单者：{{item.runnerName}}</text>
         <text class="admin-desc">{{item.campusAreaText}} · {{item.deliveryAddress}}</text>
         <text class="admin-meta">{{item.createdAtText}}</text>
       </view>
+    </view>
+    <view class="card list-empty" wx:else>
+      <text class="list-empty-title">暂无订单数据</text>
+      <text>平台产生订单后会展示在这里。</text>
     </view>
   </view>
 </view>

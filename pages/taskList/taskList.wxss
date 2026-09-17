@@ -157,3 +157,6 @@
 .empty-btn-wrap {
   margin-top: 24rpx;
 }
+
+/* 暗色模式适配（@media prefers-color-scheme: dark 内生效） */
+@import "./taskList-wxa-auto-dark.wxss";
