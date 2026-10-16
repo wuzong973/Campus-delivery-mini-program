@@ -9,9 +9,9 @@ const db = cloud.database();
 
 function buildTenpayConfig() {
   const appid =
-    process.env.WECHAT_PAY_APP_ID || process.env.APPID || "YOUR_WECHAT_APP_ID";
+    process.env.WECHAT_PAY_APP_ID || process.env.APPID || "";
   const mchid =
-    process.env.WECHAT_PAY_MCH_ID || process.env.MCHID || "YOUR_MERCHANT_ID";
+    process.env.WECHAT_PAY_MCH_ID || process.env.MCHID || "";
   const partnerKey =
     process.env.WECHAT_PAY_API_V2_KEY ||
     process.env.API_KEY_V2 ||
@@ -19,7 +19,7 @@ function buildTenpayConfig() {
   const notify_url =
     process.env.WECHAT_PAY_NOTIFY_URL ||
     process.env.NOTIFY_URL ||
-    "https://YOUR_API_HOST/pay_notify.php";
+    "";
 
   if (!appid || !mchid || !partnerKey || !notify_url) {
     throw new Error(

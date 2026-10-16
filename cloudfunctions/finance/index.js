@@ -7,8 +7,7 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 const PLATFORM_FEE_RATE = 0.01;
-const DEFAULT_NOTIFY_URL =
-  "https://YOUR_API_HOST/pay_notify.php";
+const DEFAULT_NOTIFY_URL = "";
 
 function success(data) {
   return {
@@ -34,8 +33,8 @@ function formatCurrency(value) {
 
 function getPayConfig() {
   return {
-    appId: process.env.WECHAT_PAY_APP_ID || process.env.APPID || "YOUR_WECHAT_APP_ID",
-    mchId: process.env.WECHAT_PAY_MCH_ID || process.env.MCHID || "YOUR_MERCHANT_ID",
+    appId: process.env.WECHAT_PAY_APP_ID || process.env.APPID || "",
+    mchId: process.env.WECHAT_PAY_MCH_ID || process.env.MCHID || "",
     apiV2Key: process.env.WECHAT_PAY_API_V2_KEY || process.env.API_KEY_V2 || "",
     notifyUrl:
       process.env.WECHAT_PAY_NOTIFY_URL ||

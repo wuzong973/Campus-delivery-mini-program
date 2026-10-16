@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const dotenv = require("dotenv");
 
 const envPath = path.resolve(__dirname, "../../.env");
@@ -39,19 +40,22 @@ function splitList(value) {
     .filter(Boolean);
 }
 
-const DEV_JWT_SECRET = require("crypto").randomBytes(32).toString("hex");
+const DEV_JWT_SECRET = crypto.randomBytes(32).toString("hex");
 
 /**
  * 解析 JWT 密钥。
- * 生产环境必须显式注入 JWT_SECRET —— 一旦回退到内置的公开默认值，
- * 任何人都能用它自签任意 openid 的 token，等同于全站失守，因此直接拒绝启动。
+ * 生产环境必须显式注入 JWT_SECRET，避免使用开发密钥签发 token。
  */
 function resolveJwtSecret(nodeEnv) {
   const fromEnv = trimValue(process.env.JWT_SECRET);
 
-  // 显式配置且不是那个公开的开发默认值时才算有效
-  if (fromEnv && fromEnv !== DEV_JWT_SECRET) {
+  if (fromEnv) {
     if (fromEnv.length < 32) {
+      if (nodeEnv === "production") {
+        throw new Error(
+          "生产环境 JWT_SECRET 至少需要 32 位，请注入足够长的随机字符串。",
+        );
+      }
       // eslint-disable-next-line no-console
       console.warn(
         "[env] JWT_SECRET 长度不足 32 位，建议使用足够长的随机字符串。",
@@ -62,14 +66,14 @@ function resolveJwtSecret(nodeEnv) {
 
   if (nodeEnv === "production") {
     throw new Error(
-      "生产环境缺少（或仍在使用默认的）JWT_SECRET，拒绝以不安全的密钥启动服务。" +
+      "生产环境缺少 JWT_SECRET，拒绝以不安全的密钥启动服务。" +
         "请生成一个足够长的随机字符串并注入 JWT_SECRET 环境变量。",
     );
   }
 
   // eslint-disable-next-line no-console
   console.warn(
-    "[env] 未配置 JWT_SECRET，当前使用开发默认密钥，请勿用于生产环境。",
+    "[env] 未配置 JWT_SECRET，当前使用进程内随机开发密钥；重启服务后现有 token 将失效，请勿用于生产环境。",
   );
   return DEV_JWT_SECRET;
 }
@@ -85,11 +89,8 @@ const env = {
   ),
   jwtSecret: resolveJwtSecret(nodeEnv),
 
-  publicBaseUrl: trimValue(
-    process.env.PUBLIC_BASE_URL,
-    "https://YOUR_API_HOST",
-  ),
-  appId: trimValue(process.env.WECHAT_APP_ID, "YOUR_WECHAT_APP_ID"),
+  publicBaseUrl: trimValue(process.env.PUBLIC_BASE_URL),
+  appId: trimValue(process.env.WECHAT_APP_ID),
   appSecret: trimValue(process.env.WECHAT_APP_SECRET, ""),
   adminOpenids: splitList(process.env.ADMIN_OPENIDS),
   // 允许跨域访问的浏览器来源白名单。小程序请求不带 Origin，不受此限制。
@@ -97,21 +98,15 @@ const env = {
   corsOrigins: splitList(process.env.CORS_ORIGINS),
   uploadRoot: process.env.UPLOAD_ROOT
     ? path.resolve(process.env.UPLOAD_ROOT)
-    : path.resolve("[REDACTED_SERVER_ROOT]/YOUR_API_HOST/server/uploads"),
+    : path.resolve(__dirname, "../../uploads"),
   wechatPay: {
-    mchId: trimValue(process.env.WECHAT_PAY_MCH_ID, "YOUR_MERCHANT_ID"),
+    mchId: trimValue(process.env.WECHAT_PAY_MCH_ID),
     apiV2Key: trimValue(process.env.WECHAT_PAY_API_V2_KEY, ""),
     apiV3Key: trimValue(process.env.WECHAT_PAY_API_V3_KEY, ""),
-    notifyUrl: trimValue(
-      process.env.WECHAT_PAY_NOTIFY_URL,
-      "https://YOUR_API_HOST/pay_notify.php",
-    ),
+    notifyUrl: trimValue(process.env.WECHAT_PAY_NOTIFY_URL),
     serialNo: trimValue(process.env.WECHAT_PAY_SERIAL_NO, ""),
     platformSerialNo: trimValue(process.env.WECHAT_PAY_PLATFORM_SERIAL_NO, ""),
-    publicKeyId: trimValue(
-      process.env.WECHAT_PAY_PUBLIC_KEY_ID,
-      "PUB_KEY_ID_01YOUR_MERCHANT_ID2026040900111545002400",
-    ),
+    publicKeyId: trimValue(process.env.WECHAT_PAY_PUBLIC_KEY_ID),
     publicKey: trimValue(
       process.env.WECHAT_PAY_PUBLIC_KEY ||
         readFileIfExists(process.env.WECHAT_PAY_PUBLIC_KEY_PATH),

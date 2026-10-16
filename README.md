@@ -1,109 +1,33 @@
 # 校园代拿小程序
 
-本项目已从腾讯云开发主链路迁移为“微信小程序 + Express + MongoDB”架构。
+微信小程序客户端及 Node.js 服务端源码。仓库跟踪文件已清理生产凭据、部署目标和个人工作区数据；Git 历史中的副本已在本地历史中清理，发布时仍需更新远端。
 
-## 当前架构
-- 小程序前端通过 `wx.request` / `wx.uploadFile` 访问 `https://YOUR_API_HOST/api`
-- 服务端位于 `server/`，使用 `Express + Mongoose`
-- 图片上传到服务器本地目录 `server/uploads/`
-- 微信支付回调地址固定为 `https://YOUR_API_HOST/pay_notify.php`
-- 旧 `cloudfunctions/` 目录保留为历史参考，不再作为运行主链路
+## 项目结构
 
-## 已写入的公开配置
-- 小程序 AppID: `YOUR_WECHAT_APP_ID`
-- API 域名: `https://YOUR_API_HOST/api`
-- 上传域名: `https://YOUR_API_HOST/uploads`
-- 微信支付商户号: `YOUR_MERCHANT_ID`
-- 微信支付回调地址: `https://YOUR_API_HOST/pay_notify.php`
-- 微信支付公钥 ID: `PUB_KEY_ID_01YOUR_MERCHANT_ID2026040900111545002400`
-- API 证书序列号: `YOUR_CERTIFICATE_SERIAL`
+- `pages/`、`utils/`：小程序页面和客户端逻辑
+- `cloudfunctions/`：微信云函数
+- `server/`：Express 服务端和数据迁移脚本
 
-## 敏感信息放置方式
-敏感信息不要写入前端代码或提交到 git。
+## 本地配置
 
-本仓库已为服务端准备好以下本地忽略文件：
-- `server/.env`
-- `server/certs/merchant_private_key.pem`
-- `server/certs/wechat_pay_public_key.pem`
-- `server/certs/merchant_cert.pem`
+克隆后先配置自己的小程序和服务端环境；仓库中的占位值不能直接连接任何生产服务。
 
-示例模板位于：
-- `server/.env.example`
+1. 在 `project.config.json` 和 `utils/config.js` 中填写自己的小程序 AppID、API 地址和上传地址。
+2. 复制 `server/.env.example` 为 `server/.env`，填写服务端环境变量。生产环境必须设置强随机 `JWT_SECRET`、数据库地址、微信 AppSecret 和支付参数。
+3. 将商户证书放入 `server/certs/`，并通过环境变量配置文件路径。真实 `.env`、证书及密钥已由 `.gitignore` 排除，不要提交或打包。
+4. 使用微信开发者工具导入项目，并在 `server/` 安装依赖、设置环境变量后启动服务。
 
-## 服务端启动
-```bash
-cd server
+```powershell
+Set-Location server
 npm install
 npm run start
 ```
 
-默认端口：
-- `3000`
+云函数需在微信云开发控制台配置对应的支付环境变量。不要在代码中添加密钥或生产账号信息。
 
-默认 MongoDB：
-- `mongodb://127.0.0.1:27017/campus_runner`
+## 安全提醒
 
-## Nginx 部署
-Nginx 配置示例：
-- `deploy/nginx/YOUR_API_HOST.conf`
-
-反向代理规则：
-- `/api/*` -> Express
-- `/uploads/*` -> 本地静态文件
-- `/pay_notify.php` -> Express 支付回调
-
-## 已迁移的接口
-- `POST /api/auth/login`
-- `GET /api/users/me`
-- `PATCH /api/users/me`
-- `GET /api/home`
-- `POST /api/orders`
-- `GET /api/tasks`
-- `GET /api/orders/:id`
-- `POST /api/orders/:id/accept`
-- `POST /api/orders/:id/favorite`
-- `DELETE /api/orders/:id/favorite`
-- `POST /api/orders/:id/cancel`
-- `POST /api/orders/:id/complete`
-- `POST /api/orders/:id/rate`
-- `POST /api/orders/:id/pay`
-- `GET /api/orders/:id/payment-status`
-- `POST /api/files/order-attachments`
-- `POST /api/files/delivery-proof`
-- `GET /api/wallet`
-- `POST /api/wallet/withdrawals`
-- `GET /api/mine`
-- `GET /api/orders`
-- `GET /api/admin/dashboard`
-- `POST /api/admin/withdrawals/:id/audit`
-- `POST /pay_notify.php`
-
-## 历史数据迁移
-提供了一次性迁移脚本：
-
-```bash
-cd server
-npm run migrate:cloud-export -- ../server/data/cloud-export
-```
-
-导出目录中按集合放置 JSON 文件，例如：
-- `users.json`
-- `orders.json`
-- `notifications.json`
-- `favorites.json`
-- `withdrawals.json`
-- `payment_logs.json`
-- `system_stats.json`
-- `abnormal_logs.json`
-- `settlement_logs.json`
-
-## 小程序侧变更
-- 已移除运行主链路对 `wx.cloud.callFunction` 的依赖
-- `utils/request.js` 统一处理 HTTP 请求和 token
-- `utils/api.js` 已切换到自建后端接口
-- `utils/cloudImages.js` 已改为 HTTP / 本地文件 URL 解析
-
-## 注意事项
-- 微信公众平台需要把 `https://YOUR_API_HOST` 配置为 request / upload / download 合法域名
-- 历史云文件只保留引用兼容，新上传文件全部走本地服务器
-- 正式上线前请轮换已经暴露过的支付和小程序敏感密钥
+- 曾公开过的密钥应立即在对应平台撤销并轮换；从文件和历史中删除不能使已泄露凭据自动失效。
+- 本地 Git 历史已重写以移除敏感副本；发布前需协调并强制更新 GitHub 远端，旧克隆和分叉仍可能保留原历史。
+- Git 忽略规则不会自动取消已跟踪文件的版本控制；提交前应检查暂存内容和历史。
+- `.vs/`、`.vscode/`、`.workbuddy-ai/`、`project.private.config.json` 和 `server.zip` 属于本地缓存、私有配置或敏感归档，不应提交。
